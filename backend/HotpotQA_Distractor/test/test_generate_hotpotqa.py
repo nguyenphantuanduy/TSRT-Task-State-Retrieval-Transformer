@@ -17,6 +17,8 @@ FINETUNED_MODEL = (
 MAX_NEW_TOKENS = 64
 MAX_LENGTH = 2048
 
+NUM_SAMPLES = 10
+
 
 def build_prompt(sample):
 
@@ -39,28 +41,21 @@ def build_prompt(sample):
     )
 
 
-def collect_samples(dataset):
+def collect_samples(
+    dataset,
+    num_samples=10,
+):
 
-    selected = {}
+    samples = []
 
     for sample in dataset:
 
-        level = sample["level"].lower()
+        samples.append(sample)
 
-        if level not in [
-            "easy",
-            "medium",
-            "hard",
-        ]:
-            continue
-
-        if level not in selected:
-            selected[level] = sample
-
-        if len(selected) == 3:
+        if len(samples) >= num_samples:
             break
 
-    return selected
+    return samples
 
 
 def generate_answer(
@@ -125,7 +120,7 @@ def load_model(model_name):
 
 
 def print_result(
-    level,
+    idx,
     sample,
     base_answer,
     finetuned_answer,
@@ -133,7 +128,7 @@ def print_result(
 
     print()
     print("=" * 120)
-    print(f"LEVEL : {level.upper()}")
+    print(f"SAMPLE {idx}")
     print("=" * 120)
 
     print()
@@ -152,7 +147,7 @@ def print_result(
     print(base_answer)
 
     print()
-    print("TSRT FINETUNED")
+    print("FINETUNED MODEL")
     print("-" * 120)
     print(finetuned_answer)
 
@@ -187,20 +182,25 @@ def main():
     )
 
     samples = collect_samples(
-        dataset["validation"]
+        dataset["validation"],
+        num_samples=NUM_SAMPLES,
     )
 
-    for level in [
-        "easy",
-        "medium",
-        "hard",
-    ]:
+    print()
+    print("=" * 120)
+    print(
+        f"GENERATING {len(samples)} HARD SAMPLES"
+    )
+    print("=" * 120)
 
-        sample = samples[level]
+    for idx, sample in enumerate(
+        samples,
+        start=1,
+    ):
 
         print()
         print(
-            f"Generating {level}..."
+            f"[{idx}/{len(samples)}] Generating..."
         )
 
         base_answer = generate_answer(
@@ -216,7 +216,7 @@ def main():
         )
 
         print_result(
-            level,
+            idx,
             sample,
             base_answer,
             finetuned_answer,
