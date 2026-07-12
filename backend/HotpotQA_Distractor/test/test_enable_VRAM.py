@@ -1,4 +1,5 @@
 import torch
+from collections import defaultdict
 from torch.utils.data import IterableDataset
 
 from transformers import (
@@ -9,13 +10,30 @@ from transformers import (
     TrainerCallback,
 )
 
-from data.load_data import load_hotpotqa
+from HotpotQA_Distractor.data.load_data import load_hotpotqa
 
 
 MODEL_NAME = "Qwen/Qwen3-1.7B"
 
-MAX_LENGTH = 4096
-MAX_SAMPLES = 640   # 10 optimizer step nếu grad_acc=64
+MAX_LENGTH = 2048
+
+EASY_SAMPLES = 640
+MEDIUM_SAMPLES = 640
+HARD_SAMPLES = 640
+
+TOTAL_SAMPLES = (
+    EASY_SAMPLES
+    + MEDIUM_SAMPLES
+    + HARD_SAMPLES
+)
+
+GRAD_ACCUM_STEPS = 64
+
+MAX_STEPS = (
+    TOTAL_SAMPLES
+    // GRAD_ACCUM_STEPS
+)
+
 DEVICE = "cuda"
 
 
@@ -24,14 +42,32 @@ def freeze_all(model):
         p.requires_grad = False
 
 
-def unfreeze_attention_only(model):
+# def unfreeze_attention_only(model):
+
+#     for name, param in model.named_parameters():
+
+#         name = name.lower()
+
+#         if any(
+#             k in name
+#             for k in [
+#                 "q_proj",
+#                 "k_proj",
+#                 "v_proj",
+#                 "o_proj",
+#             ]
+#         ):
+#             param.requires_grad = True
+
+def unfreeze_attention_and_last_12_ffn(model):
 
     for name, param in model.named_parameters():
 
-        name = name.lower()
+        lower_name = name.lower()
 
+        # mở toàn bộ attention
         if any(
-            k in name
+            k in lower_name
             for k in [
                 "q_proj",
                 "k_proj",
@@ -40,11 +76,33 @@ def unfreeze_attention_only(model):
             ]
         ):
             param.requires_grad = True
+            continue
+
+        # mở FFN 12 layer cuối
+        for layer_idx in range(12, 24):
+
+            layer_prefix = f"layers.{layer_idx}."
+
+            if layer_prefix in lower_name:
+
+                if any(
+                    k in lower_name
+                    for k in [
+                        "gate_proj",
+                        "up_proj",
+                        "down_proj",
+                    ]
+                ):
+                    param.requires_grad = True
+                    break
 
 
 def count_parameters(model):
 
-    total = sum(p.numel() for p in model.parameters())
+    total = sum(
+        p.numel()
+        for p in model.parameters()
+    )
 
     trainable = sum(
         p.numel()
@@ -78,29 +136,38 @@ def build_input(sample):
     return text
 
 
-class HotpotIterableDataset(IterableDataset):
+class HotpotBalancedDataset(IterableDataset):
 
     def __init__(
         self,
         hf_dataset,
         tokenizer,
-        max_samples=None
+        easy_samples=640,
+        medium_samples=640,
+        hard_samples=640
     ):
         self.dataset = hf_dataset
         self.tokenizer = tokenizer
-        self.max_samples = max_samples
+
+        self.targets = {
+            "easy": easy_samples,
+            "medium": medium_samples,
+            "hard": hard_samples,
+        }
 
     def __iter__(self):
 
-        count = 0
+        counts = defaultdict(int)
 
         for sample in self.dataset:
 
-            if (
-                self.max_samples is not None
-                and count >= self.max_samples
-            ):
-                break
+            level = sample["level"].lower()
+
+            if level not in self.targets:
+                continue
+
+            if counts[level] >= self.targets[level]:
+                continue
 
             text = build_input(sample)
 
@@ -122,7 +189,34 @@ class HotpotIterableDataset(IterableDataset):
                     encoded["input_ids"].squeeze(0),
             }
 
-            count += 1
+            counts[level] += 1
+
+            if counts[level] % 100 == 0:
+                print(
+                    f"{level:<6}: "
+                    f"{counts[level]}/"
+                    f"{self.targets[level]}"
+                )
+
+            done = all(
+                counts[k] >= self.targets[k]
+                for k in self.targets
+            )
+
+            if done:
+
+                print("\nCollected samples:")
+                print(
+                    f"easy   : {counts['easy']}"
+                )
+                print(
+                    f"medium : {counts['medium']}"
+                )
+                print(
+                    f"hard   : {counts['hard']}"
+                )
+
+                break
 
 
 class DataCollator:
@@ -153,7 +247,7 @@ class DataCollator:
         return {
             "input_ids": input_ids,
             "attention_mask": attention_mask,
-            "labels": labels
+            "labels": labels,
         }
 
 
@@ -212,7 +306,7 @@ def main():
     )
 
     freeze_all(model)
-    unfreeze_attention_only(model)
+    unfreeze_attention_and_last_12_ffn(model)
 
     total_params, trainable_params = count_parameters(model)
 
@@ -220,12 +314,20 @@ def main():
     print("=" * 80)
     print(f"Total params     : {total_params:,}")
     print(f"Trainable params : {trainable_params:,}")
+    print(f"Easy samples     : {EASY_SAMPLES}")
+    print(f"Medium samples   : {MEDIUM_SAMPLES}")
+    print(f"Hard samples     : {HARD_SAMPLES}")
+    print(f"Total samples    : {TOTAL_SAMPLES}")
+    print(f"Grad Accum       : {GRAD_ACCUM_STEPS}")
+    print(f"Max Steps        : {MAX_STEPS}")
     print("=" * 80)
 
-    train_dataset = HotpotIterableDataset(
+    train_dataset = HotpotBalancedDataset(
         dataset["train"],
         tokenizer,
-        max_samples=MAX_SAMPLES
+        easy_samples=EASY_SAMPLES,
+        medium_samples=MEDIUM_SAMPLES,
+        hard_samples=HARD_SAMPLES,
     )
 
     training_args = TrainingArguments(
@@ -233,9 +335,9 @@ def main():
 
         per_device_train_batch_size=1,
 
-        gradient_accumulation_steps=64,
+        gradient_accumulation_steps=GRAD_ACCUM_STEPS,
 
-        max_steps=10,
+        max_steps=MAX_STEPS,
 
         learning_rate=1e-5,
 
