@@ -9,7 +9,7 @@ from transformers import (
     TrainerCallback,
 )
 
-from HotpotQA_Distractor.data.load_data import load_hotpotqa
+from data.load_data import load_hotpotqa
 
 
 MODEL_NAME = "Qwen/Qwen3-1.7B"
