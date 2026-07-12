@@ -43,12 +43,15 @@ def freeze_all(model):
         p.requires_grad = False
 
 
-def unfreeze_attention_and_last_12_ffn(model):
+def unfreeze_attention_last_12_ffn_and_norm(model):
 
     for name, param in model.named_parameters():
 
         lower_name = name.lower()
 
+        # ==========================
+        # Attention (all layers)
+        # ==========================
         if any(
             k in lower_name
             for k in [
@@ -61,6 +64,29 @@ def unfreeze_attention_and_last_12_ffn(model):
             param.requires_grad = True
             continue
 
+        # ==========================
+        # RMSNorm (all layers)
+        # input_layernorm
+        # post_attention_layernorm
+        # final model.norm
+        # ==========================
+        if any(
+            k in lower_name
+            for k in [
+                "input_layernorm",
+                "post_attention_layernorm",
+                ".norm",
+            ]
+        ):
+            param.requires_grad = True
+            continue
+
+        # ==========================
+        # FFN 12 layer cuối
+        # gate_proj
+        # up_proj
+        # down_proj
+        # ==========================
         for layer_idx in range(12, 24):
 
             layer_prefix = f"layers.{layer_idx}."
@@ -284,7 +310,7 @@ def main():
 
     freeze_all(model)
 
-    unfreeze_attention_and_last_12_ffn(model)
+    unfreeze_attention_last_12_ffn_and_norm(model)
 
     total_params, trainable_params = (
         count_parameters(model)
