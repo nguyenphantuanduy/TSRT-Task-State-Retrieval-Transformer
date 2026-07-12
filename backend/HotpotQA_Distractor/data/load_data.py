@@ -1,102 +1,123 @@
-from datasets import load_dataset
+from itertools import islice
+from collections import defaultdict
+
+from transformers import AutoTokenizer
+
+from data.load_data import load_hotpotqa
 
 
-def load_hotpotqa(config="distractor"):
-    """
-    Load HotpotQA dataset using streaming mode.
+MODEL_NAME = "Qwen/Qwen3-1.7B"
+NUM_SAMPLES = 1000
 
-    Args:
-        config (str): "distractor" or "fullwiki"
 
-    Returns:
-        dict[str, IterableDataset]
-    """
+def build_input(sample):
 
-    dataset = {}
+    docs = []
 
-    # ===== TRAIN =====
-    dataset["train"] = load_dataset(
-        "hotpotqa/hotpot_qa",
-        config,
-        split="train",
-        streaming=True
-    )
-
-    # ===== VALIDATION =====
-    dataset["validation"] = load_dataset(
-        "hotpotqa/hotpot_qa",
-        config,
-        split="validation",
-        streaming=True
-    )
-
-    # ===== TEST =====
-    if config == "fullwiki":
-        dataset["test"] = load_dataset(
-            "hotpotqa/hotpot_qa",
-            config,
-            split="test",
-            streaming=True
+    for title, sentences in zip(
+        sample["context"]["title"],
+        sample["context"]["sentences"]
+    ):
+        docs.append(
+            f"{title}\n{' '.join(sentences)}"
         )
 
-    return dataset
+    context = "\n\n".join(docs)
+
+    text = (
+        f"Question: {sample['question']}\n\n"
+        f"Context:\n{context}\n\n"
+        f"Answer: {sample['answer']}"
+    )
+
+    return text
 
 
-def print_sample(sample):
-    print("\n" + "=" * 80)
+def percentile(sorted_values, p):
 
-    print("\nQuestion:")
-    print(sample["question"])
+    if len(sorted_values) == 0:
+        return 0
 
-    print("\nAnswer:")
-    print(sample["answer"])
+    idx = int(p * len(sorted_values))
+    idx = min(idx, len(sorted_values) - 1)
 
-    print("\nType:", sample["type"])
-    print("Level:", sample["level"])
+    return sorted_values[idx]
 
-    support_titles = set(sample["supporting_facts"]["title"])
 
-    print("\nSupporting Facts:")
-    for title, sent_id in zip(
-        sample["supporting_facts"]["title"],
-        sample["supporting_facts"]["sent_id"]
-    ):
-        print(f"  - {title} | sentence {sent_id}")
+def print_stats(name, lengths):
 
-    print("\nDocuments:")
-    print("-" * 80)
+    if len(lengths) == 0:
+        print(f"\n===== {name} =====")
+        print("No samples.")
+        return
 
-    for idx, (title, sentences) in enumerate(
-        zip(
-            sample["context"]["title"],
-            sample["context"]["sentences"]
+    lengths = sorted(lengths)
+
+    avg_len = sum(lengths) / len(lengths)
+
+    print(f"\n{'=' * 60}")
+    print(f"{name}")
+    print(f"{'=' * 60}")
+
+    print(f"Samples : {len(lengths)}")
+    print(f"Avg     : {avg_len:.1f}")
+    print(f"Min     : {min(lengths)}")
+    print(f"Max     : {max(lengths)}")
+    print(f"P50     : {percentile(lengths, 0.50)}")
+    print(f"P90     : {percentile(lengths, 0.90)}")
+    print(f"P95     : {percentile(lengths, 0.95)}")
+    print(f"P99     : {percentile(lengths, 0.99)}")
+
+    print("\nTruncation estimate:")
+
+    for max_length in [1024, 2048, 4096, 8192]:
+
+        kept = sum(
+            1 for x in lengths
+            if x <= max_length
         )
-    ):
-        label = "POS" if title in support_titles else "NEG"
 
-        print(f"\n[{idx}] [{label}] {title}")
-        print("-" * 40)
+        ratio = kept / len(lengths) * 100
 
-        doc_text = " ".join(sentences)
-        print(doc_text)
-
-    print("\n" + "=" * 80)
+        print(
+            f"  MAX_LENGTH={max_length:<5}"
+            f" -> {ratio:.2f}% kept"
+        )
 
 
 def main():
-    dataset = load_hotpotqa(config="distractor")
 
-    for split_name in dataset.keys():
-        print(f"\n{'=' * 20}")
-        print(f"{split_name.upper()} SAMPLE")
-        print(f"{'=' * 20}")
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True
+    )
 
-        sample = next(iter(dataset[split_name]))
+    dataset = load_hotpotqa("distractor")
 
-        print("\nKeys:")
-        print(sample.keys())
+    stats = defaultdict(list)
 
-        print_sample(sample)
+    print(f"Analyzing first {NUM_SAMPLES} samples...")
+
+    for sample in islice(dataset["train"], NUM_SAMPLES):
+
+        text = build_input(sample)
+
+        n_tokens = len(
+            tokenizer(
+                text,
+                add_special_tokens=False
+            )["input_ids"]
+        )
+
+        level = sample["level"].lower()
+
+        stats["all"].append(n_tokens)
+        stats[level].append(n_tokens)
+
+    print_stats("ALL", stats["all"])
+    print_stats("EASY", stats["easy"])
+    print_stats("MEDIUM", stats["medium"])
+    print_stats("HARD", stats["hard"])
 
 
 if __name__ == "__main__":
