@@ -1,6 +1,7 @@
 from transformers import (
     AutoTokenizer,
     AutoModelForCausalLM,
+    BitsAndBytesConfig,
 )
 
 from HotpotQA_Distractor.data.load_data import (
@@ -130,9 +131,16 @@ def teacher_labeling():
         trust_remote_code=True,
     )
 
+    quant_config = BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.bfloat16,
+        bnb_4bit_quant_type="nf4",
+        bnb_4bit_use_double_quant=True,
+    )
+
     model = AutoModelForCausalLM.from_pretrained(
         MODEL_NAME,
-        torch_dtype=torch.bfloat16,
+        quantization_config=quant_config,
         device_map="auto",
         trust_remote_code=True,
     )

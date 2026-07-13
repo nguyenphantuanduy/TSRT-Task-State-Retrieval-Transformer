@@ -4,3 +4,4 @@ accelerate
 safetensors
 sentencepiece
 datasets
+bitsandbytes
