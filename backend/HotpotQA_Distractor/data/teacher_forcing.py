@@ -189,7 +189,7 @@ def teacher_labeling():
         )
 
         yield {
-            "id": sample["_id"],
+            "id": sample["id"],
             "question": sample["question"],
             "answer": sample["answer"],
             "prompt": prompt,
