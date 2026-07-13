@@ -61,35 +61,38 @@ def build_teacher_prompt(sample):
     prompt = f"""
 You are creating supervision data for a retrieval-augmented language model.
 
-Your job:
+Task:
+Answer the question using the Evidence Documents.
 
-1. Answer the question using the provided evidence.
-2. Write a short reasoning chain.
-3. Whenever the reasoning requires looking at external evidence,
-   insert the token:
+IMPORTANT RULES:
+
+- Evidence Documents are retrieved documents.
+- Whenever a reasoning step uses information from any document,
+  place <RETRIEVAL> immediately before that step.
+- Every document-derived fact must be preceded by <RETRIEVAL>.
+- Do not discuss retrieval.
+- Do not explain your process.
+- Do not write meta-reasoning.
+- Keep reasoning short.
+- Do not output JSON.
+- End with exactly:
+
+Final Answer: ...
+
+Output format:
 
 <RETRIEVAL>
+fact from document
 
-Rules:
+<RETRIEVAL>
+fact from document
 
-- Use <RETRIEVAL> naturally before evidence-based reasoning.
-- Insert <RETRIEVAL> only when a human would need to consult evidence.
-- Avoid placing <RETRIEVAL> before every sentence.
-- Use as few retrieval markers as possible.
-- Only place <RETRIEVAL> when the next reasoning step depends on information from the provided documents.
-- Use the evidence documents as the source of reasoning.
-- Keep the reasoning concise.
-- Do NOT output JSON.
-- Do NOT explain the labeling process.
-- End with exactly:
+reasoning
 
 Final Answer: ...
 
 Question:
 {sample["question"]}
-
-Ground Truth Answer:
-{sample["answer"]}
 
 Supporting Facts:
 {facts_text}
@@ -100,16 +103,19 @@ Evidence Documents:
 Example:
 
 Question:
-Which university did John Smith attend?
+Which magazine was started first Arthur's Magazine or First for Women?
 
 Output:
 
 <RETRIEVAL>
-The document about John Smith states that he attended Harvard University.
+Arthur's Magazine was published from 1844 to 1846.
 
-Therefore John Smith attended Harvard University.
+<RETRIEVAL>
+First for Women was started in 1989.
 
-Final Answer: Harvard University
+1844 is earlier than 1989.
+
+Final Answer: Arthur's Magazine
 """.strip()
 
     return prompt
@@ -164,17 +170,21 @@ def teacher_labeling():
             max_length=MAX_INPUT_LENGTH,
         )
 
+        device = next(model.parameters()).device
+
         inputs = {
-            k: v.to(model.device)
+            k: v.to(device)
             for k, v in inputs.items()
         }
 
         with torch.no_grad():
-
             outputs = model.generate(
                 **inputs,
                 max_new_tokens=MAX_NEW_TOKENS,
                 do_sample=False,
+                temperature=None,
+                top_p=None,
+                top_k=None,
                 pad_token_id=tokenizer.eos_token_id,
             )
 
