@@ -17,7 +17,7 @@ MODEL_NAME = "Qwen/Qwen3-8B"
 
 MAX_INPUT_LENGTH = 2048
 MAX_NEW_TOKENS = 256
-BATCH_SIZE = 64
+BATCH_SIZE = 32
 
 
 class StopOnTokens(StoppingCriteria):
@@ -269,7 +269,8 @@ def process_batch(
             "raw_sample": sample,
         }
 
-def teacher_labeling():
+def teacher_labeling(mode="train"):
+    assert mode in {"train", "validation"}
 
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
@@ -325,7 +326,7 @@ def teacher_labeling():
 
     batch = []
 
-    for sample in dataset["train"]:
+    for sample in dataset[mode]:
 
         batch.append(sample)
 
@@ -411,40 +412,37 @@ def print_hotpot_sample(sample):
 
 if __name__ == "__main__":
 
-    stream = teacher_labeling()
-
-    for idx, item in enumerate(stream):
-
-        print()
-        print("#" * 120)
-        print(
-            f"TEACHER SAMPLE {idx}"
-        )
-        print("#" * 120)
-
-        sample = item["raw_sample"]
-
-        print_hotpot_sample(
-            sample
-        )
+    for mode in ["train", "validation"]:
 
         print()
         print("=" * 120)
-        print("PROMPT")
+        print(
+            f"TESTING MODE: {mode.upper()}"
+        )
         print("=" * 120)
 
-        print(
-            item["prompt"]
+        stream = teacher_labeling(
+            mode=mode
         )
+
+        for idx, item in enumerate(stream):
+
+            print()
+            print("#" * 120)
+            print(
+                f"{mode.upper()} SAMPLE {idx}"
+            )
+            print("#" * 120)
+
+            print(
+                item["teacher_text"]
+            )
+
+            if idx >= 127:
+                break
 
         print()
-        print("=" * 120)
-        print("TEACHER OUTPUT")
-        print("=" * 120)
-
         print(
-            item["teacher_text"]
+            f"Finished testing {mode} "
+            f"(128 samples)"
         )
-
-        if idx >= 63:
-            break

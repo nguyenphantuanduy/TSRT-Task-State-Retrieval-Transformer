@@ -25,33 +25,47 @@
 import time
 from datasets import load_dataset
 
-start_time = time.time()
+DATASET_REPO = "nguyenphantuanduy/temp-dataset"
+
+# ==========================================================
+# DOWNLOAD
+# ==========================================================
+
+start = time.time()
 
 dataset = load_dataset(
     "hotpotqa/hotpot_qa",
     "distractor",
 )
 
+download_time = time.time() - start
+
 print(
     f"Download + load: "
-    f"{time.time() - start_time:.2f}s"
+    f"{download_time:.2f}s"
 )
 
-count = 0
+print(dataset)
 
-start_iter = time.time()
+# ==========================================================
+# UPLOAD
+# ==========================================================
 
-for sample in dataset["train"]:
-    count += 1
+start = time.time()
 
-    if count % 10000 == 0:
-        print(
-            f"{count} samples | "
-            f"{count/(time.time()-start_iter):.2f} samples/s"
-        )
+dataset.push_to_hub(
+    DATASET_REPO,
+    private=False,
+)
 
-iter_time = time.time() - start_iter
+upload_time = time.time() - start
 
-print(f"Train samples: {count}")
-print(f"Iteration time: {iter_time:.2f}s")
-print(f"Samples/sec: {count/iter_time:.2f}")
+print(
+    f"Upload time: "
+    f"{upload_time:.2f}s"
+)
+
+print(
+    f"Total time: "
+    f"{download_time + upload_time:.2f}s"
+)
