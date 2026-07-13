@@ -215,7 +215,7 @@ def process_batch(
 
     torch.cuda.synchronize()
 
-    start_time = time.time()
+    # start_time = time.time()
 
     with torch.no_grad():
 
@@ -233,15 +233,15 @@ def process_batch(
 
     torch.cuda.synchronize()
 
-    generate_time = (
-        time.time() - start_time
-    )
+    # generate_time = (
+    #     time.time() - start_time
+    # )
 
-    print(
-        f"Batch={len(batch)} | "
-        f"Total={generate_time:.3f}s | "
-        f"Per sample={generate_time/len(batch):.3f}s"
-    )
+    # print(
+    #     f"Batch={len(batch)} | "
+    #     f"Total={generate_time:.3f}s | "
+    #     f"Per sample={generate_time/len(batch):.3f}s"
+    # )
 
     generated_part = outputs[
         :,
