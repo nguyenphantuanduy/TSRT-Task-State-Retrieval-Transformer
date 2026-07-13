@@ -30,12 +30,12 @@ start_time = time.time()
 dataset = load_dataset(
     "hotpotqa/hotpot_qa",
     "distractor",
-    streaming=True,
 )
 
-load_time = time.time() - start_time
-
-print(f"Dataset object created in {load_time:.2f}s")
+print(
+    f"Download + load: "
+    f"{time.time() - start_time:.2f}s"
+)
 
 count = 0
 
@@ -44,14 +44,14 @@ start_iter = time.time()
 for sample in dataset["train"]:
     count += 1
 
-    if count % 1000 == 0:
+    if count % 10000 == 0:
         print(
             f"{count} samples | "
-            f"{count / (time.time() - start_iter):.2f} samples/s"
+            f"{count/(time.time()-start_iter):.2f} samples/s"
         )
 
 iter_time = time.time() - start_iter
 
-print(f"Samples: {count}")
+print(f"Train samples: {count}")
 print(f"Iteration time: {iter_time:.2f}s")
-print(f"Samples/sec: {count / iter_time:.2f}")
+print(f"Samples/sec: {count/iter_time:.2f}")
