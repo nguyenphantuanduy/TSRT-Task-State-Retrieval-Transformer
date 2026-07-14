@@ -49,19 +49,26 @@ def unfreeze_attention_ffn_norm_qwen3_4b(model):
         lower_name = name.lower()
 
         # ==================================================
-        # 1. Mở toàn bộ attention (36 layers)
+        # 1. Mở attention 24 layer đầu (0 -> 23)
         # ==================================================
-        if any(
-            k in lower_name
-            for k in [
-                "q_proj",
-                "k_proj",
-                "v_proj",
-                "o_proj",
-            ]
-        ):
-            param.requires_grad = True
-            continue
+        for layer_idx in range(24):
+
+            layer_prefix = f"layers.{layer_idx}."
+
+            if layer_prefix not in lower_name:
+                continue
+
+            if any(
+                k in lower_name
+                for k in [
+                    "q_proj",
+                    "k_proj",
+                    "v_proj",
+                    "o_proj",
+                ]
+            ):
+                param.requires_grad = True
+                break
 
         # ==================================================
         # 2. Mở FFN + RMSNorm 12 layer cuối
