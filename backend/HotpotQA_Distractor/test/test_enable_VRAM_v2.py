@@ -50,7 +50,7 @@ def unfreeze_attention_ffn_42layer(model):
         # ==================================================
         # Attention layers 0 -> 27
         # ==================================================
-        for layer_idx in range(28):
+        for layer_idx in range(42):
 
             prefix = f"model.layers.{layer_idx}."
 
@@ -459,7 +459,7 @@ if __name__ == "__main__":
 
         per_device_train_batch_size=1,
 
-        gradient_accumulation_steps=1,
+        gradient_accumulation_steps=GRAD_ACCUM_STEPS,
 
         max_steps=MAX_STEPS,
 
