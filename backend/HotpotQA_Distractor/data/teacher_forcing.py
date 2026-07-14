@@ -438,7 +438,7 @@ if __name__ == "__main__":
                 item["teacher_text"]
             )
 
-            if idx >= 127:
+            if idx >= 31:
                 break
 
         print()

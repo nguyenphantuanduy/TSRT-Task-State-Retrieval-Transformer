@@ -1,4 +1,6 @@
 from datasets import Dataset, DatasetDict
+import os
+import json
 
 from HotpotQA_Distractor.data.load_data import (
     load_hotpotqa,
@@ -13,100 +15,231 @@ HF_DATASET_REPO = (
     "nguyenphantuanduy/TSRT-HotpotQA-Teacher"
 )
 
+CHUNK_SIZE = 1000
 
-def build_teacher_dataset():
+SAVE_DIR = "teacher_chunks"
 
+
+def build_split(mode):
+
+    print()
+    print("=" * 100)
     print(
-        "Loading original HotpotQA..."
+        f"Generating teacher labels for {mode}"
     )
+    print("=" * 100)
+
+
+    os.makedirs(
+        SAVE_DIR,
+        exist_ok=True
+    )
+
 
     original_dataset = load_hotpotqa(
         "distractor"
     )
 
+    original_keys = set(
+        original_dataset[mode].features.keys()
+    )
 
-    generated_splits = {}
+
+    buffer = []
+
+    chunk_idx = 0
+
+    chunk_files = []
 
 
-    for mode in [
-        "train",
-        "validation",
-    ]:
-
-        print()
-        print("=" * 100)
-        print(
-            f"Generating teacher labels for {mode}"
+    for idx, item in enumerate(
+        teacher_labeling(
+            mode=mode
         )
-        print("=" * 100)
+    ):
 
-
-        teacher_records = []
-
-        original_keys = set(
-            original_dataset[mode].features.keys()
+        sample = dict(
+            item["raw_sample"]
         )
 
 
-        for idx, item in enumerate(
-            teacher_labeling(
-                mode=mode
-            )
-        ):
-
-            sample = dict(
-                item["raw_sample"]
-            )
-
-            # check không mất field gốc
-            assert set(sample.keys()) == original_keys, (
-                f"Schema changed before adding teacher_answer\n"
-                f"Expected: {original_keys}\n"
-                f"Got: {sample.keys()}"
-            )
+        assert set(sample.keys()) == original_keys, (
+            f"Schema changed before adding teacher_answer\n"
+            f"Expected: {original_keys}\n"
+            f"Got: {sample.keys()}"
+        )
 
 
-            sample["teacher_answer"] = (
-                item["teacher_text"]
-            )
+        sample["teacher_answer"] = (
+            item["teacher_text"]
+        )
 
 
-            assert set(sample.keys()) == (
-                original_keys | {"teacher_answer"}
-            )
+        assert set(sample.keys()) == (
+            original_keys | {"teacher_answer"}
+        )
 
 
-            teacher_records.append(
-                sample
+        buffer.append(
+            sample
+        )
+
+
+        if (idx + 1) % 100 == 0:
+            print(
+                f"{mode}: Generated {idx+1}"
             )
 
 
-            if (idx + 1) % 100 == 0:
-                print(
-                    f"{mode}: Generated {idx+1}"
+        if len(buffer) >= CHUNK_SIZE:
+
+            file_path = os.path.join(
+                SAVE_DIR,
+                f"{mode}_{chunk_idx:05d}.jsonl"
+            )
+
+
+            with open(
+                file_path,
+                "w",
+                encoding="utf-8",
+            ) as f:
+
+                for row in buffer:
+                    f.write(
+                        json.dumps(
+                            row,
+                            ensure_ascii=False,
+                        )
+                        + "\n"
+                    )
+
+
+            chunk_files.append(
+                file_path
+            )
+
+
+            print(
+                f"Saved {file_path}"
+            )
+
+
+            buffer.clear()
+
+            chunk_idx += 1
+
+
+
+    # save phần còn lại
+    if len(buffer) > 0:
+
+        file_path = os.path.join(
+            SAVE_DIR,
+            f"{mode}_{chunk_idx:05d}.jsonl"
+        )
+
+
+        with open(
+            file_path,
+            "w",
+            encoding="utf-8",
+        ) as f:
+
+            for row in buffer:
+                f.write(
+                    json.dumps(
+                        row,
+                        ensure_ascii=False,
+                    )
+                    + "\n"
                 )
 
-        assert len(teacher_records) == len(original_dataset[mode]), (
-            f"{mode} size mismatch: "
-            f"{len(teacher_records)} vs "
-            f"{len(original_dataset[mode])}"
-        )
 
-        generated_splits[mode] = Dataset.from_list(
-            teacher_records
+        chunk_files.append(
+            file_path
         )
 
 
-    return DatasetDict(
-        generated_splits
+    print(
+        f"{mode}: total chunks = {len(chunk_files)}"
+    )
+
+
+    return chunk_files
+
+
+
+def load_chunks(files):
+
+    records = []
+
+    for file in files:
+
+        print(
+            f"Loading {file}"
+        )
+
+        with open(
+            file,
+            "r",
+            encoding="utf-8",
+        ) as f:
+
+            for line in f:
+                records.append(
+                    json.loads(line)
+                )
+
+
+    return Dataset.from_list(
+        records
     )
 
 
 
-def upload_dataset(dataset):
+def build_teacher_dataset():
+
+    train_files = build_split(
+        "train"
+    )
+
+    val_files = build_split(
+        "validation"
+    )
+
 
     print(
-        f"Uploading to {HF_DATASET_REPO}"
+        "Loading all chunks..."
+    )
+
+
+    dataset = DatasetDict(
+        {
+            "train": load_chunks(
+                train_files
+            ),
+
+            "validation": load_chunks(
+                val_files
+            ),
+        }
+    )
+
+
+    return dataset
+
+
+
+def main():
+
+    dataset = build_teacher_dataset()
+
+
+    print(dataset)
+
+    print(
+        dataset["train"][0].keys()
     )
 
 
@@ -121,28 +254,5 @@ def upload_dataset(dataset):
     )
 
 
-
-def main():
-
-    dataset = build_teacher_dataset()
-
-
-    print()
-    print(dataset)
-
-
-    print()
-    print(
-        dataset["train"][0].keys()
-    )
-
-
-    upload_dataset(
-        dataset
-    )
-
-
-
 if __name__ == "__main__":
-
     main()
