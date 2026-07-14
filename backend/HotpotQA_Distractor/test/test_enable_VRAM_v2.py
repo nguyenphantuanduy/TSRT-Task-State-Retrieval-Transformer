@@ -461,7 +461,7 @@ if __name__ == "__main__":
 
         gradient_accumulation_steps=1,
 
-        max_steps=5,
+        max_steps=MAX_STEPS,
 
         learning_rate=1e-5,
 
