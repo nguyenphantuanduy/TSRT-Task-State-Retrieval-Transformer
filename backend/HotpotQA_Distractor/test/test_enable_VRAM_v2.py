@@ -156,7 +156,7 @@ def expand_to_42_layers(model):
 
     print(f"Original layers : {original_num_layers}")
 
-    while len(layers) < 42:
+    while len(layers) < 56:
 
         src_idx = len(layers) % original_num_layers
 
