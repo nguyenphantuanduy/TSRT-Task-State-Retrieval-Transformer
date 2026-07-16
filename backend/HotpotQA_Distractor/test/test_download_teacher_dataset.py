@@ -39,7 +39,7 @@ def main():
 
     print("\n\nTRAIN SAMPLES")
 
-    for i in range(min(3, len(dataset["train"]))):
+    for i in range(min(10, len(dataset["train"]))):
         print_sample(
             dataset["train"][i],
             i,
@@ -47,7 +47,7 @@ def main():
 
     print("\n\nVALIDATION SAMPLES")
 
-    for i in range(min(3, len(dataset["validation"]))):
+    for i in range(min(10, len(dataset["validation"]))):
         print_sample(
             dataset["validation"][i],
             i,
