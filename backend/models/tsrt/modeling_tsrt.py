@@ -15,14 +15,28 @@ from transformers.models.qwen3.modeling_qwen3 import (
     repeat_kv,
     Qwen3Attention,
     Qwen3MLP,
+    Qwen3DecoderLayer, 
+    Qwen3RotaryEmbedding,
 )
 from transformers.integrations import (
     use_kernel_forward_from_hub,
     use_kernel_func_from_hub,
     use_kernelized_func,
 )
+import torch.nn.functional as F
+from transformers.utils import (
+    TransformersKwargs,
+    auto_docstring,
+    can_return_tuple,
+)
+from transformers.utils.generic import (
+    maybe_autocast,
+    merge_with_config_defaults,
+)
 
-from transformers.utils import TransformersKwargs
+from transformers.utils.output_capturing import (
+    capture_outputs,
+)
 
 from .configuration_tsrt import TSRTConfig
 from .cache_utils import (
@@ -31,9 +45,25 @@ from .cache_utils import (
     TSRTEmbeddingCache,
     TSRTCache
 )
-
+from .utils import (
+    prepare_document_attention_mask, 
+    prepare_cross_attention_mask, 
+    prepare_projection_mask, 
+    compute_retrieval_decision_loss,
+    compute_retrieval_ranking_loss,
+    compute_retrieval_scoring_loss,
+)
+from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from transformers.modeling_layers import GradientCheckpointingLayer
+from transformers.modeling_utils import PreTrainedModel
 
+from transformers.masking_utils import (
+    create_causal_mask,
+    create_sliding_window_causal_mask,
+)
+
+from .modeling_outputs import TSRTModelOutputWithPast
+from transformers.generation import GenerationMixin
 @use_kernel_func_from_hub("rotary_pos_emb")
 def apply_rotary_pos_emb_query(
     q,
@@ -481,6 +511,7 @@ class TSRTRetrievalProjection(nn.Module):
     def emb_calc(
         hidden_embs: torch.Tensor,
         weights: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
     ) -> torch.Tensor:
         """
         Args
@@ -495,12 +526,20 @@ class TSRTRetrievalProjection(nn.Module):
             or
             (B, D, L, 1)
 
+        attention_mask:
+            (B, L)
+            or
+            (B, D, L)
+
         Returns
 
-        (B, 1, h')
+        (B, h')
         or
         (B, D, h')
         """
+
+        if attention_mask is not None:
+            weights = weights + attention_mask.unsqueeze(-1)
 
         weights = torch.softmax(
             weights,
@@ -518,7 +557,7 @@ class TSRTRetrievalProjection(nn.Module):
         decoder_hidden_state: torch.Tensor,     # (B, L, h)
         encoder_hidden_state: torch.Tensor,     # (B, D, L', h)
         past_embedding: TSRTEmbeddingCache | None,
-        attention_mask: torch.Tensor | None = None,
+        document_attention_mask: torch.Tensor | None = None  # (B, D, L')
     ):
         # ==================================================
         # Decoder projection
@@ -597,6 +636,7 @@ class TSRTRetrievalProjection(nn.Module):
             doc_embs = self.emb_calc(
                 encoder_hidden_embs,
                 encoder_weights,
+                document_attention_mask
             )                                   # (B, D, h')
 
             if past_embedding is not None:
@@ -609,6 +649,45 @@ class TSRTRetrievalProjection(nn.Module):
             decoder_embs,   # (B, L, h') or (B, 1, h')
             doc_embs,       # (B, D, h')
         )
+
+
+class TSRTRetrievalMemory(nn.Module):
+    """
+    Update retrieval memory from usefulness scores and retrieval decisions.
+    """
+
+    def forward(
+        self,
+        usefulness_score: torch.Tensor,      # (B, L, D)
+        retrieval_decision: torch.Tensor,    # (B, L, 1)
+    ) -> torch.Tensor:
+        seq_len = usefulness_score.shape[1]
+
+        retrieval_memory = []
+
+        for i in range(seq_len):
+            current_usefulness = usefulness_score[:, i]        # (B, D)
+            current_decision = retrieval_decision[:, i]        # (B, 1)
+
+            if i == 0:
+                current_memory = (
+                    current_usefulness
+                    * current_decision
+                )
+            else:
+                current_memory = (
+                    current_usefulness
+                    * current_decision
+                    + retrieval_memory[-1]
+                    * (1 - current_decision)
+                )
+
+            retrieval_memory.append(current_memory)
+
+        return torch.stack(
+            retrieval_memory,
+            dim=1,
+        )   # (B, L, D)
 
 
 class TSRTLayer(GradientCheckpointingLayer):
@@ -681,3 +760,372 @@ class TSRTLayer(GradientCheckpointingLayer):
         decoder_hidden_states = residual + decoder_hidden_states
 
         return decoder_hidden_states
+
+
+@auto_docstring
+class TSRTPreTrainedModel(PreTrainedModel):
+    config: TSRTConfig
+
+    base_model_prefix = "model"
+
+    supports_gradient_checkpointing = True
+
+    _no_split_modules = [
+        "Qwen3DecoderLayer",
+        "TSRTLayer",
+        "TSRTRetrievalProjection",
+        "TSRTRetrievalDecisionHead",
+    ]
+
+    _skip_keys_device_placement = ["past_key_values"]
+
+    _supports_flash_attn = False
+    _supports_sdpa = False
+    _supports_flex_attn = False
+
+    _can_compile_fullgraph = False
+    _supports_attention_backend = False
+
+    _can_record_outputs = {
+        "hidden_states": TSRTLayer,
+        "self_attentions": Qwen3Attention,
+        "cross_attentions": TSRTCrossAttention,
+    }
+
+@auto_docstring
+class TSRTModel(TSRTPreTrainedModel):
+    def __init__(self, config: TSRTConfig):
+        super().__init__(config)
+        self.padding_idx = config.pad_token_id
+        self.vocab_size = config.vocab_size
+
+        self.embed_tokens = nn.Embedding(config.vocab_size, config.hidden_size, self.padding_idx)
+        self.decoder_layers = nn.ModuleList(
+            [Qwen3DecoderLayer(config, layer_idx) for layer_idx in range(config.num_decoder_layers)]
+        )
+        
+        self.encoder_layers = nn.ModuleList(
+            [Qwen3DecoderLayer(config, layer_idx) for layer_idx in range(config.num_encoder_layers)]
+        )
+
+        self.tsrt_layers = nn.ModuleList(
+            [TSRTLayer(config, layer_idx + config.num_decoder_layers, layer_idx) for layer_idx in range(config.num_tsrt_layers)]
+        )
+        
+        self.norm = Qwen3RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.rotary_emb = Qwen3RotaryEmbedding(config=config)
+        self.gradient_checkpointing = False
+        self.has_sliding_layers = "sliding_attention" in self.config.layer_types
+
+        self.retrieval_decision_head = TSRTRetrievalDecisionHead(config)
+        self.retrieval_projection = TSRTRetrievalProjection(config)
+        self.retrieval_memory = TSRTRetrievalMemory()
+
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    @merge_with_config_defaults
+    @capture_outputs
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: torch.LongTensor | None = None,
+        document_ids: torch.LongTensor | None = None,
+        attention_mask: torch.Tensor | None = None,
+        document_padding_mask: torch.Tensor | None = None,
+        question_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_values: Cache | None = None,
+        inputs_embeds: torch.FloatTensor | None = None,
+        use_cache: bool | None = None,
+        **kwargs: Unpack[TransformersKwargs],
+    ) -> BaseModelOutputWithPast:
+        # ==================================================
+        # Prepare cache and mask condition
+        # ==================================================
+
+
+        if (input_ids is None) ^ (inputs_embeds is not None):
+            raise ValueError("You must specify exactly one of input_ids or inputs_embeds")
+
+        if inputs_embeds is None:
+            inputs_embeds = self.embed_tokens(input_ids)
+
+        use_question_mask = not use_cache or past_key_values is None
+
+        if use_cache and past_key_values is None:
+            past_key_values = TSRTCache(config=self.config)
+
+        # ==================================================
+        # Decoder
+        # ==================================================
+        
+        if position_ids is None:
+            past_seen_tokens = past_key_values.decoder_cache.get_seq_length() if past_key_values is not None else 0
+            position_ids = torch.arange(inputs_embeds.shape[1], device=inputs_embeds.device) + past_seen_tokens
+            position_ids = position_ids.unsqueeze(0)
+        
+        # It may already have been prepared by e.g. `generate`
+        if not isinstance(causal_mask_mapping := attention_mask, dict):
+            # Prepare mask arguments
+            mask_kwargs = {
+                "config": self.config,
+                "inputs_embeds": inputs_embeds,
+                "attention_mask": attention_mask,
+                "past_key_values": past_key_values,
+                "position_ids": position_ids,
+            }
+            # Create the masks
+            causal_mask_mapping = {
+                "full_attention": create_causal_mask(**mask_kwargs),
+            }
+            # The sliding window alternating layers are not always activated depending on the config
+            if self.has_sliding_layers:
+                causal_mask_mapping["sliding_attention"] = create_sliding_window_causal_mask(**mask_kwargs)
+
+        decoder_hidden_states = inputs_embeds
+        decoder_position_embeddings = self.rotary_emb(decoder_hidden_states, position_ids)
+
+        for i, decoder_layer in enumerate(self.decoder_layers[: self.config.num_decoder_layers]):
+            decoder_hidden_states = decoder_layer(
+                decoder_hidden_states,
+                attention_mask=causal_mask_mapping[self.config.layer_types[i]],
+                position_embeddings=decoder_position_embeddings,
+                position_ids=position_ids,
+                past_key_values=past_key_values.decoder_cache,
+                use_cache=use_cache,
+                **kwargs,
+            )
+        
+        # ==================================================
+        # Document Encoder
+        # ==================================================
+
+        if past_key_values is not None and past_key_values.document_cache.has_encoder_state():
+            encoder_hidden_states = past_key_values.document_cache.get_encoder_state()
+        
+        else:
+            B, D, L = document_ids.shape
+            document_ids = document_ids.reshape(
+                -1,
+                document_ids.shape[-1],
+            )
+            encoder_hidden_states = self.embed_tokens(document_ids)
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
+            encoder_position_ids = encoder_position_ids.unsqueeze(0)
+
+            encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
+
+            encoder_attention_mask = prepare_document_attention_mask(document_padding_mask)
+
+            for i, encoder in enumerate(self.encoder_layers[: self.config.num_encoder_layers]):
+                encoder_hidden_states = encoder(
+                    encoder_hidden_states,
+                    attention_mask=encoder_attention_mask,
+                    position_embeddings=encoder_position_embeddings,
+                    position_ids=encoder_position_ids,
+                    use_cache=False,
+                    **kwargs,
+                )
+            
+            encoder_hidden_states = encoder_hidden_states.reshape(B, D, L, -1)
+            if past_key_values is not None:
+                past_key_values.document_cache.update_encoder_state(
+                    encoder_hidden_states
+                )
+
+        # ==================================================
+        # Calculate retrieval decision
+        # ==================================================
+
+        retrieval_decision = self.retrieval_decision_head(decoder_hidden_states) 
+        if question_mask is not None:
+            question_mask = question_mask.unsqueeze(-1)
+
+        if use_question_mask and question_mask is not None:
+            retrieval_decision = retrieval_decision * question_mask
+
+        # ==================================================
+        # Calculate usefulness score (cosine similarity)
+        # ==================================================
+
+        projection_mask = prepare_projection_mask(document_padding_mask)
+        past_embedding = (
+            past_key_values.embedding_cache
+            if past_key_values is not None
+            else None
+        )
+        decoder_embs, doc_embs = self.retrieval_projection(
+            decoder_hidden_state=decoder_hidden_states,
+            encoder_hidden_state=encoder_hidden_states,
+            past_embedding=past_embedding,
+            document_attention_mask=projection_mask,
+        )
+
+        decoder_embs = F.normalize(
+            decoder_embs,
+            p=2,
+            dim=-1,
+        )
+
+        doc_embs = F.normalize(
+            doc_embs,
+            p=2,
+            dim=-1,
+        )
+
+        usefulness_score = torch.matmul(decoder_embs, doc_embs.transpose(-1, -2))     # (B, L, D)
+
+        # ==================================================
+        # Calculate retrieval memory
+        # ==================================================
+
+        retrieval_memory = self.retrieval_memory(
+            usefulness_score,
+            retrieval_decision,
+        )
+
+        # ==================================================
+        # TSRT Decode 
+        # ==================================================
+        tsrt_hidden_states = decoder_hidden_states
+        decoder_offset = self.config.num_decoder_layers
+        cross_attention_mask = prepare_cross_attention_mask(document_padding_mask)
+
+        for i, tsrt_layer in enumerate(self.tsrt_layers[: self.config.num_tsrt_layers]):
+            tsrt_hidden_states = tsrt_layer(
+                decoder_hidden_states=tsrt_hidden_states,
+                encoder_hidden_states=encoder_hidden_states,
+                retrieval_memory=retrieval_memory,
+                decoder_position_embeddings=decoder_position_embeddings,
+                encoder_position_embeddings=encoder_position_embeddings,
+                self_attention_mask=causal_mask_mapping[self.config.layer_types[i + decoder_offset]],
+                cross_attention_mask=cross_attention_mask,
+                self_attn_past_key_values=past_key_values.decoder_cache,
+                cross_attn_past_key_values=past_key_values.document_cache,
+                use_cache=use_cache,
+                position_ids=position_ids,
+                **kwargs,
+            )
+        
+        tsrt_hidden_states = self.norm(tsrt_hidden_states)
+
+        return TSRTModelOutputWithPast(
+            last_hidden_state=tsrt_hidden_states,
+            past_key_values=past_key_values,
+            retrieval_decision=retrieval_decision.squeeze(-1),
+            usefulness_score=usefulness_score,
+        )
+
+
+@auto_docstring
+class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
+    _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
+    _tp_plan = {"lm_head": "colwise_gather_output"}
+    _pp_plan = {"lm_head": (["hidden_states"], ["logits"])}
+
+    def __init__(self, config):
+        super().__init__(config)
+        self.model = TSRTModel(config)
+        self.vocab_size = config.vocab_size
+        self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
+        self.logged_losses = {
+            "loss": None,
+            "lm_loss": None,
+            "retrieval_decision_loss": None,
+            "retrieval_ranking_loss": None,
+            "retrieval_scoring_loss": None,
+        }
+        # Initialize weights and apply final processing
+        self.post_init()
+
+    @can_return_tuple
+    @auto_docstring
+    def forward(
+        self,
+        input_ids: torch.LongTensor | None = None,
+        document_ids: torch.LongTensor | None = None,
+        attention_mask: torch.Tensor | None = None,
+        document_padding_mask: torch.Tensor | None = None,
+        question_mask: torch.Tensor | None = None,
+        position_ids: torch.LongTensor | None = None,
+        past_key_values: Cache | None = None,
+        inputs_embeds: torch.FloatTensor | None = None,
+        use_cache: bool | None = None,
+        labels: torch.LongTensor | None = None,
+        retrieval_decision_labels: torch.LongTensor | None = None,
+        usefulness_score_matrix: torch.LongTensor | None = None,
+        logits_to_keep: int | torch.Tensor = 0,
+        **kwargs: Unpack[TransformersKwargs],
+    ) -> CausalLMOutputWithPast:
+        outputs: TSRTModelOutputWithPast = self.model(
+            input_ids=input_ids,
+            document_ids=document_ids,
+            attention_mask=attention_mask,
+            document_padding_mask=document_padding_mask,
+            question_mask=question_mask,
+            position_ids=position_ids,
+            past_key_values=past_key_values,
+            inputs_embeds=inputs_embeds,
+            use_cache=use_cache,
+            **kwargs,
+        )
+
+        hidden_states = outputs.last_hidden_state
+        # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
+        slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
+        logits = self.lm_head(hidden_states[:, slice_indices, :])
+
+        loss = None
+        for key in self.logged_losses:
+            self.logged_losses[key] = None
+
+        if labels is not None:
+            lm_loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
+            loss = lm_loss
+            self.logged_losses["lm_loss"] = lm_loss.detach()
+        
+        if retrieval_decision_labels is not None:
+            retrieval_decision_score = outputs.retrieval_decision
+            retrieval_decision_loss = compute_retrieval_decision_loss(
+                retrieval_decision_scores=retrieval_decision_score,
+                retrieval_decision_labels=retrieval_decision_labels
+            )
+            loss = loss + 0.3 * retrieval_decision_loss
+            self.logged_losses["retrieval_decision_loss"] = retrieval_decision_loss.detach()
+
+        if usefulness_score_matrix is not None:
+            usefulness_score = outputs.usefulness_score
+            retrieval_ranking_loss = compute_retrieval_ranking_loss(
+                usefulness_scores=usefulness_score,
+                usefulness_score_matrix=usefulness_score_matrix
+            )
+            self.logged_losses["retrieval_ranking_loss"] = retrieval_ranking_loss.detach()
+
+            retrieval_scoring_loss = compute_retrieval_scoring_loss(
+                usefulness_scores=usefulness_score,
+                usefulness_score_matrix=usefulness_score_matrix
+            )
+            self.logged_losses["retrieval_scoring_loss"] = retrieval_scoring_loss.detach()
+
+            loss = (
+                loss
+                + 0.3 * retrieval_ranking_loss
+                + 0.3 * retrieval_scoring_loss
+            )
+
+        if loss is not None:
+            self.logged_losses["loss"] = loss.detach()
+
+        return CausalLMOutputWithPast(
+            loss=loss,
+            logits=logits,
+            past_key_values=outputs.past_key_values,
+            hidden_states=outputs.hidden_states,
+            attentions=outputs.attentions,
+        )
+
+
+
+
+

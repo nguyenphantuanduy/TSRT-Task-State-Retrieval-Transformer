@@ -1854,3 +1854,839 @@ test emb cache
 
 #     test_retrieval_bias_shape()
 #     test_retrieval_gradient()
+
+# import torch
+
+# from transformers.cache_utils import DynamicCache
+# from transformers.models.qwen3.modeling_qwen3 import Qwen3RotaryEmbedding
+
+# from models.tsrt.configuration_tsrt import TSRTConfig
+# from models.tsrt.modeling_tsrt import TSRTLayer
+# from models.tsrt.cache_utils import TSRTDocumentCache
+
+
+# torch.manual_seed(42)
+
+
+# def build_config():
+#     return TSRTConfig(
+#         hidden_size=128,
+#         intermediate_size=256,
+#         num_attention_heads=4,
+#         num_key_value_heads=2,
+#         head_dim=32,
+#         num_hidden_layers=2,
+#         attention_dropout=0.0,
+#         rms_norm_eps=1e-6,
+#     )
+
+
+# def build_pos(config, seq_len):
+#     rotary = Qwen3RotaryEmbedding(config)
+
+#     x = torch.zeros(
+#         1,
+#         seq_len,
+#         config.hidden_size,
+#     )
+
+#     pos = torch.arange(seq_len).unsqueeze(0)
+
+#     return rotary(x, pos)
+
+
+# def test_forward():
+
+#     print("=" * 60)
+#     print("Forward")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(
+#         config,
+#         0,
+#         1,
+#     )
+
+#     B = 2
+#     L = 5
+#     D = 3
+#     Lk = 4
+
+#     decoder = torch.randn(B, L, config.hidden_size)
+
+#     encoder = torch.randn(
+#         B,
+#         D,
+#         Lk,
+#         config.hidden_size,
+#     )
+
+#     retrieval = torch.rand(B, L, D)
+
+#     out = layer(
+#         decoder_hidden_states=decoder,
+#         encoder_hidden_states=encoder,
+#         retrieval_memory=retrieval,
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#     )
+
+#     print(out.shape)
+
+#     assert out.shape == decoder.shape
+
+#     print("OK")
+
+
+# def test_single_doc():
+
+#     print("=" * 60)
+#     print("Single doc")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     B = 1
+#     L = 4
+#     D = 1
+#     Lk = 3
+
+#     out = layer(
+#         decoder_hidden_states=torch.randn(B, L, config.hidden_size),
+#         encoder_hidden_states=torch.randn(
+#             B,
+#             D,
+#             Lk,
+#             config.hidden_size,
+#         ),
+#         retrieval_memory=torch.rand(B, L, D),
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#     )
+
+#     print(out.shape)
+
+#     print("OK")
+
+
+# def test_cache():
+
+#     print("=" * 60)
+#     print("Document cache")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     cache = TSRTDocumentCache(config=config)
+
+#     B = 1
+#     L = 5
+#     D = 2
+#     Lk = 4
+
+#     decoder = torch.randn(B, L, config.hidden_size)
+
+#     encoder = torch.randn(
+#         B,
+#         D,
+#         Lk,
+#         config.hidden_size,
+#     )
+
+#     retrieval = torch.rand(B, L, D)
+
+#     layer(
+#         decoder_hidden_states=decoder,
+#         encoder_hidden_states=encoder,
+#         retrieval_memory=retrieval,
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#         cross_attn_past_key_values=cache,
+#     )
+
+#     assert cache.has_kv(1)
+
+#     k, v = cache.get_kv(1)
+
+#     print(k.shape)
+#     print(v.shape)
+
+#     print("OK")
+
+
+# def test_gradient():
+
+#     print("=" * 60)
+#     print("Gradient")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     B = 2
+#     L = 5
+#     D = 2
+#     Lk = 3
+
+#     decoder = torch.randn(
+#         B,
+#         L,
+#         config.hidden_size,
+#         requires_grad=True,
+#     )
+
+#     encoder = torch.randn(
+#         B,
+#         D,
+#         Lk,
+#         config.hidden_size,
+#         requires_grad=True,
+#     )
+
+#     retrieval = torch.rand(
+#         B,
+#         L,
+#         D,
+#         requires_grad=True,
+#     )
+
+#     out = layer(
+#         decoder_hidden_states=decoder,
+#         encoder_hidden_states=encoder,
+#         retrieval_memory=retrieval,
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#     )
+
+#     out.mean().backward()
+
+#     print(decoder.grad.abs().mean())
+#     print(encoder.grad.abs().mean())
+#     print(retrieval.grad.abs().mean())
+
+#     print("OK")
+
+
+# def test_mask():
+
+#     print("=" * 60)
+#     print("Mask")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     B = 1
+#     L = 4
+#     D = 2
+#     Lk = 3
+
+#     self_mask = torch.zeros(B, 1, L, L)
+
+#     cross_mask = torch.zeros(
+#         B,
+#         1,
+#         L,
+#         D * Lk,
+#     )
+
+#     out = layer(
+#         decoder_hidden_states=torch.randn(B, L, config.hidden_size),
+#         encoder_hidden_states=torch.randn(
+#             B,
+#             D,
+#             Lk,
+#             config.hidden_size,
+#         ),
+#         retrieval_memory=torch.rand(B, L, D),
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#         self_attention_mask=self_mask,
+#         cross_attention_mask=cross_mask,
+#     )
+
+#     print(out.shape)
+
+#     print("OK")
+
+
+# def test_train_eval():
+
+#     print("=" * 60)
+#     print("Train / Eval")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     layer.train()
+
+#     print(layer.training)
+
+#     layer.eval()
+
+#     print(layer.training)
+
+#     print("OK")
+
+
+# def test_no_nan():
+
+#     print("=" * 60)
+#     print("NaN")
+
+#     config = build_config()
+
+#     layer = TSRTLayer(config, 0, 1)
+
+#     B = 2
+#     L = 5
+#     D = 2
+#     Lk = 3
+
+#     out = layer(
+#         decoder_hidden_states=torch.randn(B, L, config.hidden_size),
+#         encoder_hidden_states=torch.randn(
+#             B,
+#             D,
+#             Lk,
+#             config.hidden_size,
+#         ),
+#         retrieval_memory=torch.rand(B, L, D),
+#         decoder_position_embeddings=build_pos(config, L),
+#         encoder_position_embeddings=build_pos(config, Lk),
+#     )
+
+#     assert torch.isfinite(out).all()
+
+#     print("No NaN")
+
+#     print("OK")
+
+
+# if __name__ == "__main__":
+
+#     test_forward()
+
+#     test_single_doc()
+
+#     test_cache()
+
+#     test_gradient()
+
+#     test_mask()
+
+#     test_train_eval()
+
+#     test_no_nan()
+
+#     print("=" * 60)
+#     print("ALL TESTS PASSED")
+
+# import torch
+
+# from transformers import AutoTokenizer
+
+# from utils.utils import (
+#     batch_tokenize_documents,
+# )
+
+# from models.tsrt.utils import (
+#     prepare_document_attention_mask,
+#     prepare_cross_attention_mask,
+# )
+
+
+# if __name__ == "__main__":
+
+#     torch.set_printoptions(
+#         linewidth=200,
+#         sci_mode=True,
+#     )
+
+#     # =====================
+#     # TOKENIZER
+#     # =====================
+
+#     tokenizer = AutoTokenizer.from_pretrained(
+#         "Qwen/Qwen3-1.7B",
+#         trust_remote_code=True,
+#     )
+
+#     if tokenizer.pad_token is None:
+#         tokenizer.pad_token = tokenizer.eos_token
+
+
+#     # =====================
+#     # DOCUMENT BATCH
+#     # =====================
+
+#     samples = [
+#         [
+#             "Paris is the capital of France.",
+#             "France is located in Europe.",
+#         ],
+#         [
+#             "The Moon is Earth's only natural satellite.",
+#         ],
+#         [
+#             "PyTorch is a deep learning framework.",
+#             "Transformers are neural network architectures.",
+#             "HotpotQA is a multi-hop question answering dataset.",
+#         ],
+#     ]
+
+
+#     # =====================
+#     # TOKENIZE
+#     # =====================
+
+#     outputs = batch_tokenize_documents(
+#         samples=samples,
+#         tokenizer=tokenizer,
+#         max_length=16,
+#     )
+
+
+#     input_ids = outputs["input_ids"]
+#     attention_mask = outputs["attention_mask"]
+
+
+#     print("\n====================")
+#     print("TOKENIZED OUTPUT")
+#     print("====================")
+
+#     print("input_ids shape:")
+#     print(input_ids.shape)
+
+#     print("attention_mask shape:")
+#     print(attention_mask.shape)
+
+
+#     B, D, L = attention_mask.shape
+
+#     print()
+#     print(f"B = {B}")
+#     print(f"D = {D}")
+#     print(f"L = {L}")
+
+
+#     print("\nOriginal attention mask")
+#     print(attention_mask)
+
+
+#     # =====================
+#     # DOCUMENT SELF ATTENTION MASK
+#     # =====================
+
+#     document_mask = prepare_document_attention_mask(
+#         attention_mask
+#     )
+
+
+#     print("\n====================")
+#     print("DOCUMENT ATTENTION MASK")
+#     print("====================")
+
+#     print("shape:")
+#     print(document_mask.shape)
+
+#     print(document_mask)
+
+
+#     # =====================
+#     # CROSS ATTENTION MASK
+#     # =====================
+
+#     cross_mask = prepare_cross_attention_mask(
+#         attention_mask
+#     )
+
+
+#     print("\n====================")
+#     print("CROSS ATTENTION MASK")
+#     print("====================")
+
+#     print("shape:")
+#     print(cross_mask.shape)
+
+#     print(cross_mask)
+
+
+#     # =====================
+#     # CHECK EXPECTED SHAPE
+#     # =====================
+
+#     assert document_mask.shape == (
+#         B * D,
+#         1,
+#         1,
+#         L,
+#     )
+
+#     assert cross_mask.shape == (
+#         B,
+#         1,
+#         1,
+#         D * L,
+#     )
+
+
+#     print("\nAll shape checks passed!")
+
+# import torch
+
+
+# def compute_retrieval_ranking_loss(
+#     usefulness_scores: torch.Tensor,
+#     usefulness_score_matrix: torch.Tensor,
+#     temperature: float = 0.07,
+# ):
+#     pos_mask = usefulness_score_matrix == 1
+#     neg_mask = usefulness_score_matrix == 0
+
+#     has_pos = pos_mask.any(dim=-1)
+#     has_neg = neg_mask.any(dim=-1)
+#     valid_query = has_pos & has_neg
+
+#     if not valid_query.any():
+#         return usefulness_scores.new_zeros(())
+
+#     scores = usefulness_scores[valid_query]
+#     pos_mask = pos_mask[valid_query]
+#     neg_mask = neg_mask[valid_query]
+
+#     scores = scores / temperature
+
+#     losses = []
+
+#     for query_scores, query_pos_mask, query_neg_mask in zip(scores, pos_mask, neg_mask):
+
+#         pos_scores = query_scores[query_pos_mask]
+#         neg_scores = query_scores[query_neg_mask]
+
+#         logits = torch.cat([
+#             pos_scores[:, None],
+#             neg_scores.expand(pos_scores.size(0), -1),
+#         ], dim=1)
+
+#         positive = logits[:, 0]
+
+#         loss = -(positive - torch.logsumexp(logits, dim=1))
+
+#         losses.append(loss.mean())
+
+#     return torch.stack(losses).mean()
+
+
+# def run_case(name, scores, labels):
+#     loss = compute_retrieval_ranking_loss(scores, labels)
+#     print(f"{name:35s}: {loss.item():.6f}")
+
+
+# if __name__ == "__main__":
+
+#     # ==========================================================
+#     # Case 1: Positive >> Negative
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.99, -0.99, -0.99]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 0]
+#         ]
+#     ])
+
+#     run_case("Positive >> Negative", scores, labels)
+
+#     # ==========================================================
+#     # Case 2: Positive == Negative
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.5, 0.5, 0.5]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 0]
+#         ]
+#     ])
+
+#     run_case("Positive == Negative", scores, labels)
+
+#     # ==========================================================
+#     # Case 3: Positive << Negative
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [-0.9, 0.9, 0.8]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 0]
+#         ]
+#     ])
+
+#     run_case("Positive << Negative", scores, labels)
+
+#     # ==========================================================
+#     # Case 4: Multi Positive
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.9, 0.8, 0.1, -0.2]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 1, 0, 0]
+#         ]
+#     ])
+
+#     run_case("Multi Positive", scores, labels)
+
+#     # ==========================================================
+#     # Case 5: Skip entire query
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.9, 0.8, 0.1, -0.2],
+#             [0.3, 0.4, 0.5, 0.6],
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 1, 0, 0],
+#             [-1, -1, -1, -1],
+#         ]
+#     ])
+
+#     run_case("Skip Query", scores, labels)
+
+#     # ==========================================================
+#     # Case 6a: Skip documents inside a query
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.9, 0.8, 0.1, -0.2, 0.7]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, -1, 0, -1, 1]
+#         ]
+#     ])
+
+#     run_case("Skip Docs", scores, labels)
+
+#     # ==========================================================
+#     # Case 6b: Remove skipped docs completely
+#     # Expected:
+#     # Loss phải giống hệt Case 6a
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.9, 0.1, 0.7]
+#         ]
+#     ])
+
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 1]
+#         ]
+#     ])
+
+#     run_case("Skip Docs (Reference)", scores, labels)
+
+import torch
+import torch.nn.functional as F
+
+
+def compute_retrieval_scoring_loss(
+    usefulness_scores: torch.Tensor,
+    usefulness_score_matrix: torch.Tensor,
+):
+    """
+    usefulness_scores: (B, L, D), values in [-1, 1]
+    usefulness_score_matrix: (B, L, D), {1, 0, -1}
+    """
+
+    # Normalize to [0, 1]
+    usefulness_scores = (usefulness_scores + 1.0) / 2.0
+
+    valid_mask = usefulness_score_matrix != -1
+
+    if not valid_mask.any():
+        return usefulness_scores.new_zeros(())
+
+    scores = usefulness_scores[valid_mask]
+    targets = usefulness_score_matrix[valid_mask].float()
+
+    return F.binary_cross_entropy(
+        scores,
+        targets,
+        reduction="mean",
+    )
+
+
+def run_case(name, scores, labels):
+    loss = compute_retrieval_scoring_loss(scores, labels)
+    print(f"{name:35s}: {loss.item():.6f}")
+
+
+if __name__ == "__main__":
+
+    # ==========================================================
+    # Case 1: Perfect prediction
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [1.0, -1.0, 1.0, -1.0]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [1, 0, 1, 0]
+        ]
+    ])
+
+    run_case("Perfect Prediction", scores, labels)
+
+    # ==========================================================
+    # Case 2: Completely wrong prediction
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [-1.0, 1.0, -1.0, 1.0]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [1, 0, 1, 0]
+        ]
+    ])
+
+    run_case("Completely Wrong", scores, labels)
+
+    # ==========================================================
+    # Case 3: Random prediction
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [0.2, -0.3, 0.7, -0.5]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [1, 0, 1, 0]
+        ]
+    ])
+
+    run_case("Random Prediction", scores, labels)
+
+    # ==========================================================
+    # Case 4: Skip documents
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [1.0, 0.5, -1.0, 0.3]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [1, -1, 0, -1]
+        ]
+    ])
+
+    run_case("Skip Docs", scores, labels)
+
+    # ==========================================================
+    # Case 5: Reference (remove skipped docs)
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [1.0, -1.0]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [1, 0]
+        ]
+    ])
+
+    run_case("Skip Docs (Reference)", scores, labels)
+
+    # ==========================================================
+    # Case 6: All skip
+    # ==========================================================
+    scores = torch.tensor([
+        [
+            [0.2, 0.5, -0.3]
+        ]
+    ])
+
+    labels = torch.tensor([
+        [
+            [-1, -1, -1]
+        ]
+    ])
+
+    run_case("All Skip", scores, labels)
+
+    # ==========================================================
+    # Case 7: Gradient check
+    # ==========================================================
+    print("\nGradient Check")
+
+    # Random scores in [-1, 1]
+    scores = torch.empty(
+        2,
+        3,
+        4,
+    ).uniform_(-1.0, 1.0)
+
+    scores.requires_grad_()
+
+    labels = torch.tensor([
+        [
+            [1, 0, 1, -1],
+            [0, 1, 0, -1],
+            [1, 0, -1, -1],
+        ],
+        [
+            [1, 0, 0, 0],
+            [0, 1, -1, -1],
+            [-1, -1, -1, -1],
+        ],
+    ])
+
+    loss = compute_retrieval_scoring_loss(scores, labels)
+
+    loss.backward()
+
+    print("Loss            :", loss.item())
+    print("Gradient exists :", scores.grad is not None)
+    print("Has NaN         :", torch.isnan(scores.grad).any().item())
+    print("Gradient norm   :", scores.grad.norm().item())
+
+    print("\nGradient:")
+    print(scores.grad)

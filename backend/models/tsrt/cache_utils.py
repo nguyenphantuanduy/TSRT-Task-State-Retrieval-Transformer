@@ -133,8 +133,13 @@ class TSRTDocumentCache(DynamicCache):
             dim=1,
         )
 
+        return self.encoder_state
+
     def reset_encoder_state(self):
         self.encoder_state = None
+
+    def get_encoder_state(self):
+        return self.encoder_state
 
 class TSRTEmbeddingCache:
     def __init__(
