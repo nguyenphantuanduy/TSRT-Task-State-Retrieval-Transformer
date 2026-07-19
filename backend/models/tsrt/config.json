@@ -30,6 +30,7 @@
   "num_encoder_layers": 14,
   "num_decoder_layers": 14,
   "num_tsrt_layers": 14,
+  "retrieval_embedding_size": 1024,
   "auto_map": {
     "AutoConfig": "configuration_tsrt.TSRTConfig",
     "AutoModel": "modeling_tsrt.TSRTModel",

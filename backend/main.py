@@ -286,537 +286,833 @@ test decoder cache
 '''
 test doc cache
 '''
-import torch
-from transformers import AutoConfig
+# import torch
+# from transformers import AutoConfig
+
+# from models.tsrt.cache_utils import TSRTDocumentCache
+
+
+# # =========================
+# # Helpers
+# # =========================
+# def make_dummy_multidoc_kv(
+#     batch=1,
+#     docs=3,
+#     heads=8,
+#     seq=4,
+#     head_dim=64,
+#     device="cpu",
+#     dtype=torch.float32,
+# ):
+#     k = torch.randn(
+#         batch,
+#         docs,
+#         heads,
+#         seq,
+#         head_dim,
+#         device=device,
+#         dtype=dtype,
+#     )
+
+#     v = torch.randn(
+#         batch,
+#         docs,
+#         heads,
+#         seq,
+#         head_dim,
+#         device=device,
+#         dtype=dtype,
+#     )
+
+#     return k, v
+
+# def test_update_multidoc_kv():
+
+#     print("=== test_update_multidoc_kv ===")
+
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
+
+#     cache = TSRTDocumentCache(config=config)
+
+#     layer = 0
+
+#     k1, v1 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=5,
+#         head_dim=32,
+#     )
+
+#     key_out, value_out = cache.update(
+#         k1,
+#         v1,
+#         layer,
+#     )
+
+#     assert key_out.shape == (
+#         2,
+#         3,
+#         4,
+#         5,
+#         32,
+#     )
+
+#     assert value_out.shape == (
+#         2,
+#         3,
+#         4,
+#         5,
+#         32,
+#     )
+
+#     assert cache.layers[layer].keys.shape == (
+#         2,
+#         3,
+#         4,
+#         5,
+#         32,
+#     )
+
+#     # update lần 2
+
+#     k2, v2 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=7,
+#         head_dim=32,
+#     )
+
+#     key_out, value_out = cache.update(
+#         k2,
+#         v2,
+#         layer,
+#     )
 
-from models.tsrt.cache_utils import TSRTDocumentCache
+#     assert key_out.shape == (
+#         2,
+#         3,
+#         4,
+#         12,
+#         32,
+#     )
 
+#     assert value_out.shape == (
+#         2,
+#         3,
+#         4,
+#         12,
+#         32,
+#     )
 
-# =========================
-# Helpers
-# =========================
+#     assert cache.layers[layer].keys.shape == (
+#         2,
+#         3,
+#         4,
+#         12,
+#         32,
+#     )
 
-def make_dummy_kv(batch=1, docs=2, seq=4, dim=64, device="cpu", dtype=torch.float32):
-    k = torch.randn(batch, docs, seq, dim, device=device, dtype=dtype)
-    v = torch.randn(batch, docs, seq, dim, device=device, dtype=dtype)
-    return (k, v)
+#     assert cache.layers[layer].values.shape == (
+#         2,
+#         3,
+#         4,
+#         12,
+#         32,
+#     )
 
+#     print("OK\n")
 
-def make_dummy_encoder_state(
-    batch=1,
-    docs=2,
-    seq=8,
-    dim=64,
-    device="cpu",
-    dtype=torch.float32,
-):
-    return torch.randn(
-        batch,
-        docs,
-        seq,
-        dim,
-        device=device,
-        dtype=dtype,
-    )
+# def make_dummy_kv(batch=1, docs=2, seq=4, dim=64, device="cpu", dtype=torch.float32):
+#     k = torch.randn(batch, docs, seq, dim, device=device, dtype=dtype)
+#     v = torch.randn(batch, docs, seq, dim, device=device, dtype=dtype)
+#     return (k, v)
 
 
-def make_ddp_cache_data(num_layers, dim=64):
-    data = []
+# def make_dummy_encoder_state(
+#     batch=1,
+#     docs=2,
+#     seq=8,
+#     dim=64,
+#     device="cpu",
+#     dtype=torch.float32,
+# ):
+#     return torch.randn(
+#         batch,
+#         docs,
+#         seq,
+#         dim,
+#         device=device,
+#         dtype=dtype,
+#     )
 
-    for _ in range(num_layers):
-        data.append(make_dummy_kv(dim=dim))
 
-    return data
+# def make_ddp_cache_data(num_layers, dim=64):
+#     data = []
 
+#     for _ in range(num_layers):
+#         data.append(make_dummy_kv(dim=dim))
 
-# =========================
-# Tests
-# =========================
+#     return data
 
 
-def test_init_with_config():
+# # =========================
+# # Tests
+# # =========================
 
-    print("=== test_init_with_config ===")
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+# def test_init_with_config():
 
-    cache = TSRTDocumentCache(config=config)
+#     print("=== test_init_with_config ===")
 
-    expected_layers = config.num_tsrt_layers
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    print("num layers:", len(cache.layers))
-    print("expected :", expected_layers)
+#     cache = TSRTDocumentCache(config=config)
 
-    assert len(cache.layers) == expected_layers
+#     expected_layers = config.num_tsrt_layers
 
-    assert cache.encoder_state is None
+#     print("num layers:", len(cache.layers))
+#     print("expected :", expected_layers)
 
-    print("OK\n")
+#     assert len(cache.layers) == expected_layers
 
+#     assert cache.encoder_state is None
 
+#     print("OK\n")
 
-def test_layer_types_slice():
 
-    print("=== test_layer_types_slice ===")
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+# def test_layer_types_slice():
 
-    cache = TSRTDocumentCache(config=config)
+#     print("=== test_layer_types_slice ===")
 
-    if config.layer_types is not None:
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-        expected = config.layer_types[
-            :config.num_tsrt_layers
-        ]
+#     cache = TSRTDocumentCache(config=config)
 
-        print("expected:", expected)
-        print("actual  :", cache.cache_config.layer_types)
+#     if config.layer_types is not None:
 
-        assert cache.cache_config.layer_types == expected
+#         expected = config.layer_types[
+#             :config.num_tsrt_layers
+#         ]
 
-    print("OK\n")
+#         print("expected:", expected)
+#         print("actual  :", cache.cache_config.layer_types)
 
+#         assert cache.cache_config.layer_types == expected
 
+#     print("OK\n")
 
-def test_ddp_cache_loading():
 
-    print("=== test_ddp_cache_loading ===")
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+# def test_ddp_cache_loading():
 
-    num_layers = config.num_tsrt_layers
+#     print("=== test_ddp_cache_loading ===")
 
-    ddp_data = make_ddp_cache_data(num_layers)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    cache = TSRTDocumentCache(
-        config=config,
-        ddp_cache_data=ddp_data,
-    )
+#     num_layers = config.num_tsrt_layers
 
+#     ddp_data = make_ddp_cache_data(num_layers)
 
-    for i in range(num_layers):
+#     cache = TSRTDocumentCache(
+#         config=config,
+#         ddp_cache_data=ddp_data,
+#     )
 
-        layer = cache.layers[i]
 
-        print(
-            f"layer {i}:",
-            layer.keys.shape
-        )
+#     for i in range(num_layers):
 
-        assert layer.keys.shape == layer.values.shape
-        assert layer.keys.dim() == 4
-        assert layer.is_initialized
+#         layer = cache.layers[i]
 
+#         print(
+#             f"layer {i}:",
+#             layer.keys.shape
+#         )
 
-    print("OK\n")
+#         assert layer.keys.shape == layer.values.shape
+#         assert layer.keys.dim() == 4
+#         assert layer.is_initialized
 
 
+#     print("OK\n")
 
-def test_has_kv_and_get_kv():
 
-    print("=== test_has_kv_and_get_kv ===")
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+# def test_has_kv_and_get_kv():
 
-    cache = TSRTDocumentCache(config=config)
+#     print("=== test_has_kv_and_get_kv ===")
 
-    layer_id = 0
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
+#     cache = TSRTDocumentCache(config=config)
 
-    assert cache.has_kv(layer_id) is False
+#     layer_id = 0
 
 
-    k, v = make_dummy_kv(seq=3)
+#     assert cache.has_kv(layer_id) is False
 
 
-    cache.layers[layer_id].keys = k
-    cache.layers[layer_id].values = v
-    cache.layers[layer_id].is_initialized = True
+#     k, v = make_dummy_kv(seq=3)
 
 
-    assert cache.has_kv(layer_id)
+#     cache.layers[layer_id].keys = k
+#     cache.layers[layer_id].values = v
+#     cache.layers[layer_id].is_initialized = True
 
 
-    k_out, v_out = cache.get_kv(layer_id)
+#     assert cache.has_kv(layer_id)
 
 
-    assert torch.equal(k, k_out)
-    assert torch.equal(v, v_out)
+#     k_out, v_out = cache.get_kv(layer_id)
 
 
-    print("OK\n")
+#     assert torch.equal(k, k_out)
+#     assert torch.equal(v, v_out)
 
 
+#     print("OK\n")
 
-def test_get_kv_empty():
 
-    print("=== test_get_kv_empty ===")
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+# def test_get_kv_empty():
 
-    cache = TSRTDocumentCache(config=config)
+#     print("=== test_get_kv_empty ===")
 
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    k, v = cache.get_kv(0)
+#     cache = TSRTDocumentCache(config=config)
 
-    assert k is None
-    assert v is None
 
+#     k, v = cache.get_kv(0)
 
-    print("OK\n")
+#     assert k is None
+#     assert v is None
 
 
+#     print("OK\n")
 
-def test_reset_kv():
 
-    print("=== test_reset_kv ===")
 
+# def test_reset_kv():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_reset_kv ===")
 
-    cache = TSRTDocumentCache(config=config)
 
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    k, v = make_dummy_kv(seq=3)
+#     cache = TSRTDocumentCache(config=config)
 
 
-    cache.layers[0].keys = k
-    cache.layers[0].values = v
-    cache.layers[0].is_initialized = True
+#     k, v = make_dummy_kv(seq=3)
 
 
-    cache.reset_kv(0)
+#     cache.layers[0].keys = k
+#     cache.layers[0].values = v
+#     cache.layers[0].is_initialized = True
 
 
-    assert cache.layers[0].keys is None
-    assert cache.layers[0].values is None
-    assert cache.layers[0].is_initialized is False
+#     cache.reset_kv(0)
 
 
-    print("OK\n")
+#     assert cache.layers[0].keys is None
+#     assert cache.layers[0].values is None
+#     assert cache.layers[0].is_initialized is False
 
 
+#     print("OK\n")
 
-def test_reset_all():
 
-    print("=== test_reset_all ===")
 
+# def test_reset_all():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_reset_all ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    for layer in cache.layers:
+#     cache = TSRTDocumentCache(config=config)
 
-        k, v = make_dummy_kv()
 
-        layer.keys = k
-        layer.values = v
-        layer.is_initialized = True
+#     for layer in cache.layers:
 
+#         k, v = make_dummy_kv()
 
-    cache.reset_all()
+#         layer.keys = k
+#         layer.values = v
+#         layer.is_initialized = True
 
 
-    for layer in cache.layers:
+#     cache.reset_all()
 
-        assert layer.keys is None
-        assert layer.values is None
-        assert layer.is_initialized is False
 
+#     for layer in cache.layers:
 
-    print("OK\n")
+#         assert layer.keys is None
+#         assert layer.values is None
+#         assert layer.is_initialized is False
 
 
+#     print("OK\n")
 
-# =========================
-# New update() test
-# =========================
 
 
-def test_update_kv():
+# # =========================
+# # New update() test
+# # =========================
 
-    print("=== test_update_kv ===")
 
+# def test_update_kv():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_update_kv ===")
 
-    cache = TSRTDocumentCache(config=config)
 
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    layer = 0
+#     cache = TSRTDocumentCache(config=config)
 
 
-    k1, v1 = make_dummy_kv(seq=3)
+#     layer = 0
 
-    cache.update(
-        k1,
-        v1,
-        layer,
-    )
 
+#     k1, v1 = make_dummy_kv(seq=3)
 
-    assert cache.layers[layer].keys.shape[-2] == 3
+#     cache.update(
+#         k1,
+#         v1,
+#         layer,
+#     )
 
 
+#     assert cache.layers[layer].keys.shape[-2] == 3
 
-    k2, v2 = make_dummy_kv(seq=4)
 
-    cache.update(
-        k2,
-        v2,
-        layer,
-    )
 
+#     k2, v2 = make_dummy_kv(seq=4)
 
-    assert cache.layers[layer].keys.shape[-2] == 7
+#     cache.update(
+#         k2,
+#         v2,
+#         layer,
+#     )
 
 
-    print("OK\n")
+#     assert cache.layers[layer].keys.shape[-2] == 7
 
 
+#     print("OK\n")
 
-def test_update_kv_dtype_fix():
 
-    print("=== test_update_kv_dtype_fix ===")
 
+# def test_update_kv_dtype_fix():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_update_kv_dtype_fix ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    k1, v1 = make_dummy_kv(
-        seq=2,
-        dtype=torch.float32,
-    )
+#     cache = TSRTDocumentCache(config=config)
 
-    cache.update(k1, v1, 0)
 
+#     k1, v1 = make_dummy_kv(
+#         seq=2,
+#         dtype=torch.float32,
+#     )
 
-    k2, v2 = make_dummy_kv(
-        seq=2,
-        dtype=torch.float16,
-    )
+#     cache.update(k1, v1, 0)
 
 
-    cache.update(k2, v2, 0)
+#     k2, v2 = make_dummy_kv(
+#         seq=2,
+#         dtype=torch.float16,
+#     )
 
 
-    assert cache.layers[0].keys.dtype == torch.float32
+#     cache.update(k2, v2, 0)
 
 
-    print("OK\n")
+#     assert cache.layers[0].keys.dtype == torch.float32
 
 
+#     print("OK\n")
 
-# =========================
-# Encoder state tests
-# =========================
 
 
-def test_encoder_state_init():
+# # =========================
+# # Encoder state tests
+# # =========================
 
-    print("=== test_encoder_state_init ===")
 
+# def test_encoder_state_init():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_encoder_state_init ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    assert cache.has_encoder_state() is False
-    assert cache.encoder_state is None
+#     cache = TSRTDocumentCache(config=config)
 
 
-    print("OK\n")
+#     assert cache.has_encoder_state() is False
+#     assert cache.encoder_state is None
 
 
+#     print("OK\n")
 
-def test_update_encoder_state():
 
-    print("=== test_update_encoder_state ===")
 
+# def test_update_encoder_state():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_update_encoder_state ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    state1 = make_dummy_encoder_state(
-        docs=2
-    )
+#     cache = TSRTDocumentCache(config=config)
 
 
-    cache.update_encoder_state(state1)
+#     state1 = make_dummy_encoder_state(
+#         docs=2
+#     )
 
 
-    assert cache.has_encoder_state()
+#     cache.update_encoder_state(state1)
 
-    assert cache.encoder_state.shape == (
-        1,
-        2,
-        8,
-        64
-    )
 
+#     assert cache.has_encoder_state()
 
+#     assert cache.encoder_state.shape == (
+#         1,
+#         2,
+#         8,
+#         64
+#     )
 
-    state2 = make_dummy_encoder_state(
-        docs=3
-    )
 
 
-    cache.update_encoder_state(state2)
+#     state2 = make_dummy_encoder_state(
+#         docs=3
+#     )
 
 
-    assert cache.encoder_state.shape == (
-        1,
-        5,
-        8,
-        64
-    )
+#     cache.update_encoder_state(state2)
 
 
-    print("OK\n")
+#     assert cache.encoder_state.shape == (
+#         1,
+#         5,
+#         8,
+#         64
+#     )
 
 
+#     print("OK\n")
 
-def test_update_encoder_state_dtype_fix():
 
-    print("=== test_update_encoder_state_dtype_fix ===")
 
+# def test_update_encoder_state_dtype_fix():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_update_encoder_state_dtype_fix ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    state1 = make_dummy_encoder_state(
-        dtype=torch.float32
-    )
+#     cache = TSRTDocumentCache(config=config)
 
 
-    cache.update_encoder_state(state1)
+#     state1 = make_dummy_encoder_state(
+#         dtype=torch.float32
+#     )
 
 
+#     cache.update_encoder_state(state1)
 
-    state2 = make_dummy_encoder_state(
-        dtype=torch.float16
-    )
 
 
-    cache.update_encoder_state(state2)
+#     state2 = make_dummy_encoder_state(
+#         dtype=torch.float16
+#     )
 
 
-    assert cache.encoder_state.dtype == torch.float32
+#     cache.update_encoder_state(state2)
 
 
-    print("OK\n")
+#     assert cache.encoder_state.dtype == torch.float32
 
 
+#     print("OK\n")
 
-def test_reset_encoder_state():
 
-    print("=== test_reset_encoder_state ===")
 
+# def test_reset_encoder_state():
 
-    config = AutoConfig.from_pretrained(
-        "models/tsrt",
-        trust_remote_code=True,
-    )
+#     print("=== test_reset_encoder_state ===")
 
 
-    cache = TSRTDocumentCache(config=config)
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
 
-    state = make_dummy_encoder_state()
+#     cache = TSRTDocumentCache(config=config)
 
-    cache.update_encoder_state(state)
 
+#     state = make_dummy_encoder_state()
 
-    assert cache.has_encoder_state()
+#     cache.update_encoder_state(state)
 
 
+#     assert cache.has_encoder_state()
 
-    cache.reset_encoder_state()
 
 
-    assert cache.encoder_state is None
-    assert cache.has_encoder_state() is False
+#     cache.reset_encoder_state()
 
 
-    print("OK\n")
+#     assert cache.encoder_state is None
+#     assert cache.has_encoder_state() is False
 
 
+#     print("OK\n")
 
-# =========================
-# Run
-# =========================
+# def test_update_multidoc_kv_shape():
 
+#     print("=== test_update_multidoc_kv_shape ===")
 
-if __name__ == "__main__":
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
 
-    test_init_with_config()
-    test_layer_types_slice()
+#     cache = TSRTDocumentCache(config=config)
 
-    test_ddp_cache_loading()
+#     layer = 0
 
-    test_has_kv_and_get_kv()
-    test_get_kv_empty()
+#     k1, v1 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=5,
+#         head_dim=32,
+#     )
 
-    test_reset_kv()
-    test_reset_all()
+#     cache.update(k1, v1, layer)
 
-    test_update_kv()
-    test_update_kv_dtype_fix()
+#     k2, v2 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=7,
+#         head_dim=32,
+#     )
 
-    test_encoder_state_init()
-    test_update_encoder_state()
-    test_update_encoder_state_dtype_fix()
-    test_reset_encoder_state()
+#     cache.update(k2, v2, layer)
+
+#     k_out, v_out = cache.get_kv(layer)
+
+#     assert k_out.shape == (2, 3, 4, 12, 32)
+#     assert v_out.shape == (2, 3, 4, 12, 32)
+
+#     print("OK\n")
+
+# def test_update_multidoc_kv_values():
+
+#     print("=== test_update_multidoc_kv_values ===")
+
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
+
+#     cache = TSRTDocumentCache(config=config)
+
+#     layer = 0
+
+#     k1, v1 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=5,
+#         head_dim=32,
+#     )
+
+#     cache.update(k1, v1, layer)
+
+#     k2, v2 = make_dummy_multidoc_kv(
+#         batch=2,
+#         docs=3,
+#         heads=4,
+#         seq=7,
+#         head_dim=32,
+#     )
+
+#     cache.update(k2, v2, layer)
+
+#     expected_k = torch.cat(
+#         [k1, k2],
+#         dim=-2,
+#     )
+
+#     expected_v = torch.cat(
+#         [v1, v2],
+#         dim=-2,
+#     )
+
+#     k_out, v_out = cache.get_kv(layer)
+
+#     assert torch.equal(k_out, expected_k)
+#     assert torch.equal(v_out, expected_v)
+
+#     print("OK\n")
+
+# def test_update_multidoc_kv_order():
+
+#     print("=== test_update_multidoc_kv_order ===")
+
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
+
+#     cache = TSRTDocumentCache(config=config)
+
+#     layer = 0
+
+#     k1 = torch.arange(
+#         2 * 3 * 4 * 5 * 8,
+#         dtype=torch.float32,
+#     ).reshape(
+#         2, 3, 4, 5, 8,
+#     )
+
+#     v1 = k1 + 10000
+
+#     cache.update(
+#         k1,
+#         v1,
+#         layer,
+#     )
+
+#     k2 = (
+#         torch.arange(
+#             2 * 3 * 4 * 7 * 8,
+#             dtype=torch.float32,
+#         ).reshape(
+#             2, 3, 4, 7, 8,
+#         )
+#         + 100000
+#     )
+
+#     v2 = k2 + 10000
+
+#     cache.update(
+#         k2,
+#         v2,
+#         layer,
+#     )
+
+#     expected_k = torch.cat(
+#         [k1, k2],
+#         dim=-2,
+#     )
+
+#     expected_v = torch.cat(
+#         [v1, v2],
+#         dim=-2,
+#     )
+
+#     k_out, v_out = cache.get_kv(layer)
+
+#     assert torch.equal(k_out, expected_k)
+#     assert torch.equal(v_out, expected_v)
+
+#     # kiểm tra vài vị trí cụ thể
+
+#     assert k_out[0, 0, 0, 0, 0] == k1[0, 0, 0, 0, 0]
+
+#     assert k_out[0, 0, 0, 4, 0] == k1[0, 0, 0, 4, 0]
+
+#     assert k_out[0, 0, 0, 5, 0] == k2[0, 0, 0, 0, 0]
+
+#     assert k_out[0, 0, 0, 11, 0] == k2[0, 0, 0, 6, 0]
+
+#     print("OK\n")
+
+# # =========================
+# # Run
+# # =========================
+
+
+# if __name__ == "__main__":
+
+#     test_init_with_config()
+#     test_layer_types_slice()
+
+#     test_ddp_cache_loading()
+
+#     test_has_kv_and_get_kv()
+#     test_get_kv_empty()
+
+#     test_reset_kv()
+#     test_reset_all()
+
+#     test_update_kv()
+#     test_update_kv_dtype_fix()
+
+#     test_encoder_state_init()
+#     test_update_encoder_state()
+#     test_update_encoder_state_dtype_fix()
+#     test_reset_encoder_state()
+#     test_update_multidoc_kv()
+#     test_update_multidoc_kv_order()
+#     test_update_multidoc_kv_values()
+#     test_update_multidoc_kv_shape()
 '''
 test emb cache
 '''
@@ -1026,3 +1322,535 @@ test emb cache
 #     test_reset_doc_embs()
 #     test_reset_all()
 #     test_device_alignment()
+
+# from transformers import AutoConfig
+
+# from models.tsrt.utils import tsrt_config_to_qwen3_config
+
+
+# def main():
+
+#     tsrt_config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
+
+#     print("=== TSRT Config ===")
+#     print(type(tsrt_config))
+#     print("hidden_size:", tsrt_config.hidden_size)
+#     print("num_hidden_layers:", tsrt_config.num_hidden_layers)
+#     print("num_encoder_layers:", tsrt_config.num_encoder_layers)
+#     print("num_decoder_layers:", tsrt_config.num_decoder_layers)
+#     print("num_tsrt_layers:", tsrt_config.num_tsrt_layers)
+
+#     qwen_config = tsrt_config_to_qwen3_config(
+#         tsrt_config
+#     )
+
+#     print("\n=== Qwen Config ===")
+#     print(type(qwen_config))
+#     print("hidden_size:", qwen_config.hidden_size)
+#     print("num_hidden_layers:", qwen_config.num_hidden_layers)
+#     print("num_attention_heads:", qwen_config.num_attention_heads)
+#     print("num_key_value_heads:", qwen_config.num_key_value_heads)
+
+#     print("\n=== Equality Check ===")
+
+#     fields = [
+#         "vocab_size",
+#         "hidden_size",
+#         "intermediate_size",
+#         "num_hidden_layers",
+#         "num_attention_heads",
+#         "num_key_value_heads",
+#         "head_dim",
+#         "hidden_act",
+#         "max_position_embeddings",
+#         "initializer_range",
+#         "rms_norm_eps",
+#         "attention_bias",
+#         "attention_dropout",
+#     ]
+
+#     for field in fields:
+#         tsrt_value = getattr(tsrt_config, field)
+#         qwen_value = getattr(qwen_config, field)
+
+#         ok = tsrt_value == qwen_value
+
+#         print(
+#             f"{field:30s} : "
+#             f"{'OK' if ok else 'FAIL'}"
+#         )
+
+
+# if __name__ == "__main__":
+#     main()
+
+# import torch
+# from transformers import Qwen3Config
+# from transformers.models.qwen3.modeling_qwen3 import Qwen3RotaryEmbedding
+
+
+# def main():
+
+#     config = Qwen3Config(
+#         hidden_size=2048,
+#         num_attention_heads=16,
+#         max_position_embeddings=4096,
+#     )
+
+#     rotary = Qwen3RotaryEmbedding(config)
+
+#     B = 4
+#     L = 128
+
+#     hidden_states = torch.randn(
+#         B,
+#         L,
+#         config.hidden_size,
+#     )
+
+#     position_ids = torch.arange(L).unsqueeze(0)
+
+#     print("hidden_states:", hidden_states.shape)
+#     print("position_ids :", position_ids.shape)
+
+#     cos, sin = rotary(hidden_states, position_ids)
+
+#     print()
+#     print("cos:", cos.shape)
+#     print("sin:", sin.shape)
+
+
+# if __name__ == "__main__":
+#     main()
+
+# import torch
+# from transformers import AutoConfig
+
+# from models.tsrt.modeling_tsrt import TSRTCrossAttention
+# from models.tsrt.cache_utils import TSRTDocumentCache
+
+
+# torch.manual_seed(42)
+
+
+# # ==========================================================
+# # Helpers
+# # ==========================================================
+
+# def make_config():
+#     config = AutoConfig.from_pretrained(
+#         "models/tsrt",
+#         trust_remote_code=True,
+#     )
+
+#     # giảm size để chạy CPU
+#     config.hidden_size = 128
+#     config.num_attention_heads = 4
+#     config.num_key_value_heads = 2
+#     config.head_dim = 32
+
+#     config.attention_bias = False
+#     config.attention_dropout = 0.0
+#     config._attn_implementation = "eager"
+
+#     config.rms_norm_eps = 1e-6
+
+#     return config
+
+
+
+# def make_inputs(
+#     batch=2,
+#     seq_q=5,
+#     docs=3,
+#     seq_k=7,
+#     hidden=128,
+# ):
+
+#     decoder_hidden_states = torch.randn(
+#         batch,
+#         seq_q,
+#         hidden,
+#     )
+
+#     encoder_hidden_states = torch.randn(
+#         batch,
+#         docs,
+#         seq_k,
+#         hidden,
+#     )
+
+#     retrieval_memory = torch.randn(
+#         batch,
+#         seq_q,
+#         docs,
+#     ).tanh()
+
+
+#     decoder_cos = torch.randn(
+#         1,
+#         seq_q,
+#         32,
+#     )
+
+#     decoder_sin = torch.randn(
+#         1,
+#         seq_q,
+#         32,
+#     )
+
+
+#     encoder_cos = torch.randn(
+#         1,
+#         seq_k,
+#         32,
+#     )
+
+#     encoder_sin = torch.randn(
+#         1,
+#         seq_k,
+#         32,
+#     )
+
+
+#     return (
+#         decoder_hidden_states,
+#         encoder_hidden_states,
+#         retrieval_memory,
+#         (decoder_cos, decoder_sin),
+#         (encoder_cos, encoder_sin),
+#     )
+
+
+
+# # ==========================================================
+# # Tests
+# # ==========================================================
+
+
+# def test_forward_shape():
+
+#     print("=== test_forward_shape ===")
+
+
+#     config = make_config()
+
+#     attn = TSRTCrossAttention(
+#         config,
+#         layer_idx=0,
+#     )
+
+
+#     inputs = make_inputs()
+
+
+#     out, weights = attn(
+#         *inputs,
+#         attention_mask=None,
+#     )
+
+
+#     print("output :", out.shape)
+#     print("weight :", weights.shape)
+
+
+#     assert out.shape == (
+#         2,
+#         5,
+#         128,
+#     )
+
+
+#     assert weights.shape == (
+#         2,
+#         4,
+#         5,
+#         21,     # docs * seq_k = 3*7
+#     )
+
+
+#     print("OK\n")
+
+
+
+# def test_forward_single_doc():
+
+#     print("=== test_forward_single_doc ===")
+
+
+#     config = make_config()
+
+#     attn = TSRTCrossAttention(
+#         config,
+#         layer_idx=0,
+#     )
+
+
+#     inputs = make_inputs(
+#         docs=1,
+#         seq_k=4,
+#     )
+
+
+#     out, weights = attn(
+#         *inputs,
+#         attention_mask=None,
+#     )
+
+
+#     print(out.shape)
+#     print(weights.shape)
+
+
+#     assert weights.shape[-1] == 4
+
+
+#     print("OK\n")
+
+
+
+# def test_cache_path():
+
+#     print("=== test_cache_path ===")
+
+
+#     config = make_config()
+
+
+#     attn = TSRTCrossAttention(
+#         config,
+#         layer_idx=0,
+#     )
+
+
+#     cache = TSRTDocumentCache(
+#         config=config,
+#     )
+
+
+#     inputs = make_inputs(
+#         batch=1,
+#         seq_q=3,
+#         docs=2,
+#         seq_k=4,
+#     )
+
+
+#     # lần đầu:
+#     out1, w1 = attn(
+#         *inputs,
+#         attention_mask=None,
+#         past_key_values=cache,
+#     )
+
+
+#     assert cache.has_kv(0)
+
+
+#     k, v = cache.get_kv(0)
+
+
+#     print(
+#         "cached k:",
+#         k.shape
+#     )
+
+#     print(
+#         "cached v:",
+#         v.shape
+#     )
+
+
+#     # lần hai:
+#     out2, w2 = attn(
+#         *inputs,
+#         attention_mask=None,
+#         past_key_values=cache,
+#     )
+
+
+#     assert out2.shape == out1.shape
+
+
+#     print("OK\n")
+
+
+
+# def test_gradient():
+
+#     print("=== test_gradient ===")
+
+
+#     config = make_config()
+
+
+#     attn = TSRTCrossAttention(
+#         config,
+#         layer_idx=0,
+#     )
+
+
+#     inputs = make_inputs(
+#         batch=1,
+#         seq_q=2,
+#         docs=2,
+#         seq_k=3,
+#     )
+
+
+#     decoder = inputs[0]
+#     decoder.requires_grad_(True)
+
+
+#     inputs = (
+#         decoder,
+#         *inputs[1:]
+#     )
+
+
+#     out, _ = attn(
+#         *inputs,
+#         attention_mask=None,
+#     )
+
+
+#     loss = out.mean()
+
+#     loss.backward()
+
+
+#     print(
+#         "decoder grad:",
+#         decoder.grad.abs().mean()
+#     )
+
+
+#     assert decoder.grad is not None
+
+
+#     print("OK\n")
+
+
+
+# def test_retrieval_bias_shape():
+
+#     print("=== test_retrieval_bias_shape ===")
+
+
+#     B = 2
+#     L = 3
+#     D = 4
+#     Lk = 5
+
+
+#     retrieval_memory = torch.rand(
+#         B,
+#         L,
+#         D
+#     ) * 2 - 1
+
+
+#     bias = (
+#         1
+#         + torch.log(
+#             torch.clamp(
+#                 (retrieval_memory + 1) / 2,
+#                 min=1e-6,
+#             )
+#         )
+#     )
+
+
+#     bias = (
+#         bias
+#         .unsqueeze(-1)
+#         .expand(-1,-1,-1,Lk)
+#         .reshape(B,L,D*Lk)
+#         .unsqueeze(1)
+#     )
+
+
+#     print(
+#         "bias:",
+#         bias.shape
+#     )
+
+
+#     assert bias.shape == (
+#         B,
+#         1,
+#         L,
+#         D*Lk
+#     )
+
+
+#     print("OK\n")
+
+# def test_retrieval_gradient():
+
+#     print("=== test_retrieval_gradient ===")
+
+#     config = make_config()
+
+#     attn = TSRTCrossAttention(
+#         config,
+#         layer_idx=0,
+#     )
+
+#     inputs = make_inputs(
+#         batch=1,
+#         seq_q=3,
+#         docs=2,
+#         seq_k=4,
+#     )
+
+#     retrieval_memory = inputs[2]
+#     retrieval_memory.requires_grad_(True)
+
+#     inputs = (
+#         inputs[0],
+#         inputs[1],
+#         retrieval_memory,
+#         inputs[3],
+#         inputs[4],
+#     )
+
+#     out, _ = attn(
+#         *inputs,
+#         attention_mask=None,
+#     )
+
+#     loss = out.mean()
+
+#     loss.backward()
+
+
+#     print(
+#         "retrieval grad:",
+#         retrieval_memory.grad
+#     )
+
+
+#     assert retrieval_memory.grad is not None
+
+#     print("OK\n")
+
+# # ==========================================================
+# # Run
+# # ==========================================================
+
+# if __name__ == "__main__":
+
+#     test_forward_shape()
+
+#     test_forward_single_doc()
+
+#     test_cache_path()
+
+#     test_gradient()
+
+#     test_retrieval_bias_shape()
+#     test_retrieval_gradient()

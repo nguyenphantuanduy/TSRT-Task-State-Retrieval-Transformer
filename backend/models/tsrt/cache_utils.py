@@ -47,7 +47,7 @@ class TSRTDocumentCache(DynamicCache):
     def __init__(
         self,
         ddp_cache_data: Iterable[tuple[torch.Tensor | None, ...]] | None = None,
-        config=None,
+        config: TSRTConfig | None = None,
         offloading: bool = False,
         offload_only_non_sliding: bool = False,
     ):
@@ -102,47 +102,6 @@ class TSRTDocumentCache(DynamicCache):
             layer.keys = None
             layer.values = None
             layer.is_initialized = False
-
-    # =========================
-    # SAFE UPDATE (QUAN TRỌNG)
-    # =========================
-
-    def update(
-        self,
-        key_states: torch.Tensor,
-        value_states: torch.Tensor,
-        layer_idx: int,
-        cache_kwargs=None,
-    ):
-        """
-        Override để handle:
-        - init None
-        - dtype mismatch
-        - device mismatch
-        """
-
-        layer = self.layers[layer_idx]
-
-        # ===== CASE 1: chưa init =====
-        if not layer.is_initialized or layer.keys is None:
-            layer.keys = key_states
-            layer.values = value_states
-            layer.is_initialized = True
-            return
-
-        # ===== FIX dtype =====
-        if layer.keys.dtype != key_states.dtype:
-            key_states = key_states.to(layer.keys.dtype)
-            value_states = value_states.to(layer.values.dtype)
-
-        # ===== FIX device =====
-        if layer.keys.device != key_states.device:
-            key_states = key_states.to(layer.keys.device)
-            value_states = value_states.to(layer.values.device)
-
-        # ===== CONCAT =====
-        layer.keys = torch.cat([layer.keys, key_states], dim=-2)
-        layer.values = torch.cat([layer.values, value_states], dim=-2)
 
     # =========================
     # ENCODER STATE
@@ -234,12 +193,16 @@ class TSRTEmbeddingCache:
         self.weights = self._concat(self.weights, weights)
         self.hidden_embs = self._concat(self.hidden_embs, hidden_embs)
 
+        return self.weights, self.hidden_embs
+
     def update_doc_embs(self, doc_embs: torch.Tensor):
         """
         Set / overwrite doc_embs (không concat)
         """
         doc_embs = self._ensure_compat(doc_embs)
         self.doc_embs = doc_embs
+
+        return self.doc_embs
 
     # ========================
     # state check
@@ -265,6 +228,12 @@ class TSRTEmbeddingCache:
         self.doc_embs = None
         self.dtype = None
         self.device = None
+    
+    def get_doc_embs(self) -> torch.Tensor | None:
+        """
+        Return cached document embeddings
+        """
+        return self.doc_embs
 
 
 class TSRTCache(Cache):

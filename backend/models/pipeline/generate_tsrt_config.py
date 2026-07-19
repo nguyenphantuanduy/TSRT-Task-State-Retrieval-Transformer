@@ -36,6 +36,7 @@ config["num_hidden_layers"] = 42
 config["num_encoder_layers"] = 14
 config["num_decoder_layers"] = 14
 config["num_tsrt_layers"] = 14
+config["retrieval_embedding_size"] = 1024
 
 # Custom model metadata
 config["model_type"] = "tsrt"
