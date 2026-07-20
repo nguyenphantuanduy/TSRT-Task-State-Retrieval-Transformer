@@ -1071,6 +1071,10 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             **kwargs,
         )
 
+        num_items_in_batch = kwargs.get(
+            "num_items_in_batch",
+            None,
+        )
         hidden_states = outputs.last_hidden_state
         # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
         slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
@@ -1089,7 +1093,8 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             retrieval_decision_score = outputs.retrieval_decision
             retrieval_decision_loss = compute_retrieval_decision_loss(
                 retrieval_decision_scores=retrieval_decision_score,
-                retrieval_decision_labels=retrieval_decision_labels
+                retrieval_decision_labels=retrieval_decision_labels,
+                num_items_in_batch=num_items_in_batch,
             )
             loss = loss + 0.3 * retrieval_decision_loss
             self.logged_losses["retrieval_decision_loss"] = retrieval_decision_loss.detach()
@@ -1098,13 +1103,14 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             usefulness_score = outputs.usefulness_score
             retrieval_ranking_loss = compute_retrieval_ranking_loss(
                 usefulness_scores=usefulness_score,
-                usefulness_score_matrix=usefulness_score_matrix
+                usefulness_score_matrix=usefulness_score_matrix,
             )
             self.logged_losses["retrieval_ranking_loss"] = retrieval_ranking_loss.detach()
 
             retrieval_scoring_loss = compute_retrieval_scoring_loss(
                 usefulness_scores=usefulness_score,
-                usefulness_score_matrix=usefulness_score_matrix
+                usefulness_score_matrix=usefulness_score_matrix,
+                num_items_in_batch=num_items_in_batch,
             )
             self.logged_losses["retrieval_scoring_loss"] = retrieval_scoring_loss.detach()
 
@@ -1125,7 +1131,11 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             attentions=outputs.attentions,
         )
 
-
+__all__ = [
+    "TSRTModel",
+    "TSRTForCausalLM",
+    "TSRTPreTrainedModel",
+]
 
 
 

@@ -469,10 +469,10 @@ test doc cache
 
 #     print("=== test_init_with_config ===")
 
-#     config = AutoConfig.from_pretrained(
-#         "models/tsrt",
-#         trust_remote_code=True,
-#     )
+    # config = AutoConfig.from_pretrained(
+    #     "models/tsrt",
+    #     trust_remote_code=True,
+    # )
 
 #     cache = TSRTDocumentCache(config=config)
 
@@ -2512,181 +2512,195 @@ test emb cache
 
 #     run_case("Skip Docs (Reference)", scores, labels)
 
-import torch
-import torch.nn.functional as F
+# import torch
+# import torch.nn.functional as F
 
 
-def compute_retrieval_scoring_loss(
-    usefulness_scores: torch.Tensor,
-    usefulness_score_matrix: torch.Tensor,
-):
-    """
-    usefulness_scores: (B, L, D), values in [-1, 1]
-    usefulness_score_matrix: (B, L, D), {1, 0, -1}
-    """
+# def compute_retrieval_scoring_loss(
+#     usefulness_scores: torch.Tensor,
+#     usefulness_score_matrix: torch.Tensor,
+# ):
+#     """
+#     usefulness_scores: (B, L, D), values in [-1, 1]
+#     usefulness_score_matrix: (B, L, D), {1, 0, -1}
+#     """
 
-    # Normalize to [0, 1]
-    usefulness_scores = (usefulness_scores + 1.0) / 2.0
+#     # Normalize to [0, 1]
+#     usefulness_scores = (usefulness_scores + 1.0) / 2.0
 
-    valid_mask = usefulness_score_matrix != -1
+#     valid_mask = usefulness_score_matrix != -1
 
-    if not valid_mask.any():
-        return usefulness_scores.new_zeros(())
+#     if not valid_mask.any():
+#         return usefulness_scores.new_zeros(())
 
-    scores = usefulness_scores[valid_mask]
-    targets = usefulness_score_matrix[valid_mask].float()
+#     scores = usefulness_scores[valid_mask]
+#     targets = usefulness_score_matrix[valid_mask].float()
 
-    return F.binary_cross_entropy(
-        scores,
-        targets,
-        reduction="mean",
-    )
-
-
-def run_case(name, scores, labels):
-    loss = compute_retrieval_scoring_loss(scores, labels)
-    print(f"{name:35s}: {loss.item():.6f}")
+#     return F.binary_cross_entropy(
+#         scores,
+#         targets,
+#         reduction="mean",
+#     )
 
 
-if __name__ == "__main__":
+# def run_case(name, scores, labels):
+#     loss = compute_retrieval_scoring_loss(scores, labels)
+#     print(f"{name:35s}: {loss.item():.6f}")
 
-    # ==========================================================
-    # Case 1: Perfect prediction
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [1.0, -1.0, 1.0, -1.0]
-        ]
-    ])
 
-    labels = torch.tensor([
-        [
-            [1, 0, 1, 0]
-        ]
-    ])
+# if __name__ == "__main__":
 
-    run_case("Perfect Prediction", scores, labels)
+#     # ==========================================================
+#     # Case 1: Perfect prediction
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [1.0, -1.0, 1.0, -1.0]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 2: Completely wrong prediction
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [-1.0, 1.0, -1.0, 1.0]
-        ]
-    ])
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 1, 0]
+#         ]
+#     ])
 
-    labels = torch.tensor([
-        [
-            [1, 0, 1, 0]
-        ]
-    ])
+#     run_case("Perfect Prediction", scores, labels)
 
-    run_case("Completely Wrong", scores, labels)
+#     # ==========================================================
+#     # Case 2: Completely wrong prediction
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [-1.0, 1.0, -1.0, 1.0]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 3: Random prediction
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [0.2, -0.3, 0.7, -0.5]
-        ]
-    ])
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 1, 0]
+#         ]
+#     ])
 
-    labels = torch.tensor([
-        [
-            [1, 0, 1, 0]
-        ]
-    ])
+#     run_case("Completely Wrong", scores, labels)
 
-    run_case("Random Prediction", scores, labels)
+#     # ==========================================================
+#     # Case 3: Random prediction
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.2, -0.3, 0.7, -0.5]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 4: Skip documents
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [1.0, 0.5, -1.0, 0.3]
-        ]
-    ])
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 1, 0]
+#         ]
+#     ])
 
-    labels = torch.tensor([
-        [
-            [1, -1, 0, -1]
-        ]
-    ])
+#     run_case("Random Prediction", scores, labels)
 
-    run_case("Skip Docs", scores, labels)
+#     # ==========================================================
+#     # Case 4: Skip documents
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [1.0, 0.5, -1.0, 0.3]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 5: Reference (remove skipped docs)
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [1.0, -1.0]
-        ]
-    ])
+#     labels = torch.tensor([
+#         [
+#             [1, -1, 0, -1]
+#         ]
+#     ])
 
-    labels = torch.tensor([
-        [
-            [1, 0]
-        ]
-    ])
+#     run_case("Skip Docs", scores, labels)
 
-    run_case("Skip Docs (Reference)", scores, labels)
+#     # ==========================================================
+#     # Case 5: Reference (remove skipped docs)
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [1.0, -1.0]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 6: All skip
-    # ==========================================================
-    scores = torch.tensor([
-        [
-            [0.2, 0.5, -0.3]
-        ]
-    ])
+#     labels = torch.tensor([
+#         [
+#             [1, 0]
+#         ]
+#     ])
 
-    labels = torch.tensor([
-        [
-            [-1, -1, -1]
-        ]
-    ])
+#     run_case("Skip Docs (Reference)", scores, labels)
 
-    run_case("All Skip", scores, labels)
+#     # ==========================================================
+#     # Case 6: All skip
+#     # ==========================================================
+#     scores = torch.tensor([
+#         [
+#             [0.2, 0.5, -0.3]
+#         ]
+#     ])
 
-    # ==========================================================
-    # Case 7: Gradient check
-    # ==========================================================
-    print("\nGradient Check")
+#     labels = torch.tensor([
+#         [
+#             [-1, -1, -1]
+#         ]
+#     ])
 
-    # Random scores in [-1, 1]
-    scores = torch.empty(
-        2,
-        3,
-        4,
-    ).uniform_(-1.0, 1.0)
+#     run_case("All Skip", scores, labels)
 
-    scores.requires_grad_()
+#     # ==========================================================
+#     # Case 7: Gradient check
+#     # ==========================================================
+#     print("\nGradient Check")
 
-    labels = torch.tensor([
-        [
-            [1, 0, 1, -1],
-            [0, 1, 0, -1],
-            [1, 0, -1, -1],
-        ],
-        [
-            [1, 0, 0, 0],
-            [0, 1, -1, -1],
-            [-1, -1, -1, -1],
-        ],
-    ])
+#     # Random scores in [-1, 1]
+#     scores = torch.empty(
+#         2,
+#         3,
+#         4,
+#     ).uniform_(-1.0, 1.0)
 
-    loss = compute_retrieval_scoring_loss(scores, labels)
+#     scores.requires_grad_()
 
-    loss.backward()
+#     labels = torch.tensor([
+#         [
+#             [1, 0, 1, -1],
+#             [0, 1, 0, -1],
+#             [1, 0, -1, -1],
+#         ],
+#         [
+#             [1, 0, 0, 0],
+#             [0, 1, -1, -1],
+#             [-1, -1, -1, -1],
+#         ],
+#     ])
 
-    print("Loss            :", loss.item())
-    print("Gradient exists :", scores.grad is not None)
-    print("Has NaN         :", torch.isnan(scores.grad).any().item())
-    print("Gradient norm   :", scores.grad.norm().item())
+#     loss = compute_retrieval_scoring_loss(scores, labels)
 
-    print("\nGradient:")
-    print(scores.grad)
+#     loss.backward()
+
+#     print("Loss            :", loss.item())
+#     print("Gradient exists :", scores.grad is not None)
+#     print("Has NaN         :", torch.isnan(scores.grad).any().item())
+#     print("Gradient norm   :", scores.grad.norm().item())
+
+#     print("\nGradient:")
+#     print(scores.grad)
+
+
+from transformers import AutoConfig, AutoModelForCausalLM
+config = AutoConfig.from_pretrained(
+    "models/tsrt",
+    trust_remote_code=True,
+)
+
+config.torch_dtype = "bfloat16"
+
+model = AutoModelForCausalLM.from_config(
+    config,
+    trust_remote_code=True,
+)

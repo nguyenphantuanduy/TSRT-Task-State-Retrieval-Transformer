@@ -114,38 +114,21 @@ def prepare_projection_mask(
     ) * torch.finfo(torch.float32).min
 
 import torch
-
-def multi_positive_info_nce(
-    pos_scores: torch.Tensor,
-    neg_scores: torch.Tensor,
-    temperature: float = 0.07,
-):
-    # pos_scores: (P,)
-    # neg_scores: (N,)
-
-    logits = torch.cat([
-        pos_scores[:, None],                     # (P,1)
-        neg_scores.expand(len(pos_scores), -1),  # (P,N)
-    ], dim=1)
-
-    logits = logits / temperature
-
-    positive = logits[:, 0]
-
-    loss = -(positive - torch.logsumexp(logits, dim=1))
-
-    return loss.mean()
-
-
-import torch
 import torch.nn.functional as F
 
 
 def compute_retrieval_decision_loss(
     retrieval_decision_scores: torch.Tensor,    # (B, L), sigmoid scores in [0, 1]
     retrieval_decision_labels: torch.Tensor,    # (B, L), {0, 1, -1}
+    num_items_in_batch: int | None = None,
 ) -> torch.Tensor:
-    # Ignore positions with label = -1
+    """
+    Binary cross entropy loss for retrieval decision.
+
+    Ignore:
+        - label == -1
+    """
+
     valid_mask = retrieval_decision_labels != -1
 
     if not valid_mask.any():
@@ -154,14 +137,18 @@ def compute_retrieval_decision_loss(
     scores = retrieval_decision_scores[valid_mask]
     targets = retrieval_decision_labels[valid_mask].float()
 
+    reduction = "mean" if num_items_in_batch is None else "sum"
+
     loss = F.binary_cross_entropy(
         scores,
         targets,
-        reduction="mean",
+        reduction=reduction,
     )
 
-    return loss
+    if num_items_in_batch is not None:
+        loss = loss / num_items_in_batch
 
+    return loss
 
 import torch
 
@@ -226,20 +213,19 @@ import torch.nn.functional as F
 
 
 def compute_retrieval_scoring_loss(
-    usefulness_scores: torch.Tensor,       # (B, L, D), scores in [-1, 1]
-    usefulness_score_matrix: torch.Tensor, # (B, L, D), {1, 0, -1}
+    usefulness_scores: torch.Tensor,        # (B, L, D), [-1,1]
+    usefulness_score_matrix: torch.Tensor,  # (B, L, D), {1,0,-1}
+    num_items_in_batch: int | None = None,
 ) -> torch.Tensor:
     """
-    Binary Cross Entropy loss for usefulness scores.
+    Binary cross entropy loss for usefulness scores.
 
     Ignore:
         - label == -1
     """
 
-    # Convert scores from [-1, 1] -> [0, 1]
     usefulness_scores = (usefulness_scores + 1.0) / 2.0
 
-    # Ignore padded / skipped documents
     valid_mask = usefulness_score_matrix != -1
 
     if not valid_mask.any():
@@ -248,10 +234,15 @@ def compute_retrieval_scoring_loss(
     scores = usefulness_scores[valid_mask]
     targets = usefulness_score_matrix[valid_mask].float()
 
+    reduction = "mean" if num_items_in_batch is None else "sum"
+
     loss = F.binary_cross_entropy(
         scores,
         targets,
-        reduction="mean",
+        reduction=reduction,
     )
+
+    if num_items_in_batch is not None:
+        loss = loss / num_items_in_batch
 
     return loss
