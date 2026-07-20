@@ -2708,7 +2708,7 @@ test emb cache
 from transformers import AutoModelForCausalLM
 
 model = AutoModelForCausalLM.from_pretrained(
-    "./TSRT-Qwen3-1.7B-init",
+    "./models/tsrt",
     trust_remote_code=True,
     torch_dtype="auto",
 )
