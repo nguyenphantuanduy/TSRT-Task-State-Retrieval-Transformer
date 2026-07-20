@@ -2692,11 +2692,11 @@ test emb cache
 #     print(scores.grad)
 
 
-# from transformers import AutoConfig, AutoModelForCausalLM
-# config = AutoConfig.from_pretrained(
-#     "models/tsrt",
-#     trust_remote_code=True,
-# )
+from transformers import AutoConfig, AutoModelForCausalLM
+config = AutoConfig.from_pretrained(
+    "models/tsrt",
+    trust_remote_code=True,
+)
 
 # config.torch_dtype = "bfloat16"
 
@@ -2705,10 +2705,42 @@ test emb cache
 #     trust_remote_code=True,
 # )
 
-from transformers import AutoModelForCausalLM
+# from transformers import AutoModelForCausalLM
 
-model = AutoModelForCausalLM.from_pretrained(
-    "./models/tsrt",
-    trust_remote_code=True,
-    torch_dtype="auto",
-)
+# model = AutoModelForCausalLM.from_pretrained(
+#     "./models/tsrt",
+#     trust_remote_code=True,
+#     torch_dtype="auto",
+# )
+
+# import torch
+# from transformers import AutoModelForCausalLM
+
+# model = AutoModelForCausalLM.from_pretrained(
+#     "Qwen/Qwen3-1.7B",
+#     torch_dtype="auto",
+#     device_map="cpu",
+# )
+
+# print(type(model))
+# print(model.__class__)
+# print(model.config.__class__)
+
+# from models.tsrt.modeling_tsrt import TSRTForCausalLM
+
+# print(TSRTForCausalLM)
+# print(type(TSRTForCausalLM))
+
+# print(hasattr(TSRTForCausalLM, "config_class"))
+
+# if hasattr(TSRTForCausalLM, "config_class"):
+#     print(TSRTForCausalLM.config_class)
+#     print(type(TSRTForCausalLM.config_class))
+
+# from models.tsrt.modeling_tsrt import TSRTPreTrainedModel, TSRTForCausalLM
+
+# print(TSRTPreTrainedModel.config_class)
+# print(type(TSRTPreTrainedModel.config_class))
+
+# print(TSRTForCausalLM.config_class)
+# print(type(TSRTForCausalLM.config_class))

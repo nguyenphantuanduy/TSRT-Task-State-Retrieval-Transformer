@@ -762,9 +762,10 @@ class TSRTLayer(GradientCheckpointingLayer):
         return decoder_hidden_states
 
 
-@auto_docstring
 class TSRTPreTrainedModel(PreTrainedModel):
     config: TSRTConfig
+
+    config_class = TSRTConfig
 
     base_model_prefix = "model"
 
@@ -792,7 +793,6 @@ class TSRTPreTrainedModel(PreTrainedModel):
         "cross_attentions": TSRTCrossAttention,
     }
 
-@auto_docstring
 class TSRTModel(TSRTPreTrainedModel):
     def __init__(self, config: TSRTConfig):
         super().__init__(config)
@@ -826,7 +826,6 @@ class TSRTModel(TSRTPreTrainedModel):
 
     @merge_with_config_defaults
     @capture_outputs
-    @auto_docstring
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
@@ -1018,7 +1017,6 @@ class TSRTModel(TSRTPreTrainedModel):
         )
 
 
-@auto_docstring
 class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
     _tied_weights_keys = {"lm_head.weight": "model.embed_tokens.weight"}
     _tp_plan = {"lm_head": "colwise_gather_output"}
@@ -1040,7 +1038,6 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         self.post_init()
 
     @can_return_tuple
-    @auto_docstring
     def forward(
         self,
         input_ids: torch.LongTensor | None = None,
