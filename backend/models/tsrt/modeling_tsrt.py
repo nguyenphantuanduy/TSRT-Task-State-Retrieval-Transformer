@@ -877,7 +877,7 @@ class TSRTModel(TSRTPreTrainedModel):
                 "config": self.config,
                 "inputs_embeds": inputs_embeds,
                 "attention_mask": attention_mask,
-                "past_key_values": past_key_values,
+                "past_key_values": past_key_values.decoder_cache,
                 "position_ids": position_ids,
             }
             # Create the masks
