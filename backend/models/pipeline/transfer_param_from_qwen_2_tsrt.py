@@ -301,7 +301,7 @@ if __name__ == "__main__":
     model = build_tsrt_from_qwen()
 
 
-    save_path = "./TSRT-Qwen3-1.7B-init"
+    save_path = "./models/tsrt"
 
 
     model.save_pretrained(
