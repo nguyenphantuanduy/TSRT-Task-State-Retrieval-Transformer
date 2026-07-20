@@ -353,8 +353,70 @@ def check_transfer():
 
     print("=" * 60)
 
+from fvcore.nn import FlopCountAnalysis
+
+
+def check_flops():
+
+    print("=" * 60)
+    print("CHECK FLOPs")
+    print("=" * 60)
+
+
+    tsrt = TSRTForCausalLM.from_pretrained(
+        TSRT_PATH,
+        torch_dtype=torch.float32,
+        device_map="cpu",
+        trust_remote_code=True,
+    )
+
+    tsrt.eval()
+
+
+    input_ids = torch.randint(
+        0,
+        tsrt.config.vocab_size,
+        (1,512),
+    )
+
+
+    document_ids = torch.randint(
+        0,
+        tsrt.config.vocab_size,
+        (1,4,512),
+    )
+
+
+    document_mask = torch.ones(
+        1,4,512
+    )
+
+
+    flops = FlopCountAnalysis(
+        tsrt,
+        (
+            input_ids,
+            document_ids,
+            None,
+            document_mask,
+            None,
+        )
+    )
+
+
+    print(
+        "Total FLOPs:",
+        flops.total()
+    )
+
+
+    print(
+        "GFLOPs:",
+        flops.total()/1e9
+    )
 
 
 if __name__ == "__main__":
 
     check_transfer()
+    check_flops()
