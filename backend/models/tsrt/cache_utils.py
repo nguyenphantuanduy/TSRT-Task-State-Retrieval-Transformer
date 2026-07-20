@@ -313,18 +313,18 @@ class TSRTCache(Cache):
             layer.is_initialized for layer in self.decoder_cache.layers
         )
     
-    # @property
-    # def layers(self):
-    #     return self.decoder_cache.layers
+    @property
+    def layers(self):
+        return self.decoder_cache.layers
 
 
-    # def get_mask_sizes(self, q_length, layer_idx: int):
-    #     return self.decoder_cache.get_mask_sizes(q_length, layer_idx)
+    def get_mask_sizes(self, q_length, layer_idx: int):
+        return self.decoder_cache.get_mask_sizes(q_length, layer_idx)
 
 
-    # def __len__(self):
-    #     return len(self.decoder_cache.layers)
+    def __len__(self):
+        return len(self.decoder_cache.layers)
 
 
-    # def __getitem__(self, idx):
-    #     return self.decoder_cache.layers[idx]
+    def __getitem__(self, idx):
+        return self.decoder_cache.layers[idx]
