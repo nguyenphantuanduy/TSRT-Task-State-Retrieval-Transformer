@@ -1,5 +1,8 @@
 import os
+import json
+
 from huggingface_hub import HfApi, upload_folder
+from transformers import AutoTokenizer
 
 
 # ==========================================
@@ -10,7 +13,13 @@ LOCAL_MODEL_PATH = "./models/tsrt"
 
 HF_REPO = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
 
+TOKENIZER_NAME = "Qwen/Qwen3-1.7B"
 
+
+
+# ==========================================
+# Check files
+# ==========================================
 
 def check_required_files():
 
@@ -46,10 +55,11 @@ def check_required_files():
 
 
 
+# ==========================================
+# Add auto map
+# ==========================================
+
 def check_auto_map():
-
-    import json
-
 
     config_path = os.path.join(
         LOCAL_MODEL_PATH,
@@ -57,7 +67,7 @@ def check_auto_map():
     )
 
 
-    with open(config_path) as f:
+    with open(config_path, "r") as f:
         config = json.load(f)
 
 
@@ -87,9 +97,11 @@ def check_auto_map():
                 indent=2
             )
 
+
         print(
             "[OK] auto_map added"
         )
+
 
     else:
 
@@ -98,6 +110,38 @@ def check_auto_map():
         )
 
 
+
+# ==========================================
+# Add tokenizer
+# ==========================================
+
+def save_tokenizer():
+
+    print("=" * 60)
+    print("Loading Qwen3 tokenizer")
+    print("=" * 60)
+
+
+    tokenizer = AutoTokenizer.from_pretrained(
+        TOKENIZER_NAME,
+        trust_remote_code=True,
+    )
+
+
+    tokenizer.save_pretrained(
+        LOCAL_MODEL_PATH
+    )
+
+
+    print(
+        "[OK] tokenizer saved"
+    )
+
+
+
+# ==========================================
+# Upload
+# ==========================================
 
 def upload():
 
@@ -119,7 +163,7 @@ def upload():
         folder_path=LOCAL_MODEL_PATH,
         repo_id=HF_REPO,
         commit_message=
-        "Upload TSRT Qwen3-1.7B model with remote code",
+        "Upload TSRT Qwen3-1.7B with tokenizer and remote code",
     )
 
 
@@ -127,16 +171,23 @@ def upload():
     print("DONE")
     print("=" * 60)
 
+
     print(
         f"https://huggingface.co/{HF_REPO}"
     )
 
 
 
+# ==========================================
+# Main
+# ==========================================
+
 if __name__ == "__main__":
 
     check_required_files()
 
     check_auto_map()
+
+    save_tokenizer()
 
     upload()

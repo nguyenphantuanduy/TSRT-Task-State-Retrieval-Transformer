@@ -852,7 +852,13 @@ class TSRTModel(TSRTPreTrainedModel):
 
         use_question_mask = not use_cache or past_key_values is None
 
-        if use_cache and past_key_values is None:
+        if (
+            use_cache
+            and (
+                past_key_values is None
+                or not isinstance(past_key_values, TSRTCache)
+            )
+        ):
             past_key_values = TSRTCache(config=self.config)
 
         # ==================================================
@@ -902,6 +908,10 @@ class TSRTModel(TSRTPreTrainedModel):
 
         if past_key_values is not None and past_key_values.document_cache.has_encoder_state():
             encoder_hidden_states = past_key_values.document_cache.get_encoder_state()
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
+            encoder_position_ids = encoder_position_ids.unsqueeze(0)
+
+            encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
         
         else:
             B, D, L = document_ids.shape

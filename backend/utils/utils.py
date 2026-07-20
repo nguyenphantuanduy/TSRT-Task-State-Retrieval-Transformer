@@ -1,5 +1,5 @@
 import torch
-
+from models.tsrt.modeling_tsrt import TSRTForCausalLM
 
 def batch_tokenize_documents(
     samples: list[list[str]],
@@ -160,3 +160,60 @@ if __name__ == "__main__":
 
     print(doc_mask)
     print("shape:", doc_mask.shape)
+
+def freeze_for_tsrt_training(model: TSRTForCausalLM):
+    """
+    Training strategy:
+
+    1. Unfreeze everything.
+    2. Freeze:
+        - Token embedding
+        - LM head
+        - All decoder layers
+        - FFN (MLP) of encoder layers
+
+    Remaining trainable:
+        - Encoder self-attention
+        - Entire TSRT layers
+        - Retrieval heads
+        - Final norm
+    """
+
+    # ==========================================================
+    # Unfreeze everything
+    # ==========================================================
+
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # ==========================================================
+    # Freeze embedding
+    # ==========================================================
+
+    for param in model.model.embed_tokens.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Freeze LM head
+    # ==========================================================
+
+    for param in model.lm_head.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Freeze decoder
+    # ==========================================================
+
+    for layer in model.model.decoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = False
+
+    # ==========================================================
+    # Freeze encoder FFN only
+    # ==========================================================
+
+    for layer in model.model.encoder_layers:
+        for param in layer.mlp.parameters():
+            param.requires_grad = False
+
+    return model

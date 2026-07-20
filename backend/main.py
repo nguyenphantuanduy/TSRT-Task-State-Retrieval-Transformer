@@ -2746,11 +2746,210 @@ test emb cache
 # print(type(TSRTForCausalLM.config_class))
 
 
+# import torch
+# from transformers import AutoModelForCausalLM, AutoTokenizer
+
+
+# MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+
+
+# def main():
+
+#     device = "cuda"
+
+#     print("Loading tokenizer...")
+#     tokenizer = AutoTokenizer.from_pretrained(
+#         MODEL_NAME,
+#         trust_remote_code=True,
+#     )
+
+
+#     print("Loading model...")
+#     model = AutoModelForCausalLM.from_pretrained(
+#         MODEL_NAME,
+#         trust_remote_code=True,
+#         torch_dtype=torch.bfloat16,
+#         device_map="cuda",
+#     )
+
+#     model.eval()
+
+
+#     # ==========================================================
+#     # Input question
+#     # ==========================================================
+
+#     question = """
+#     Who was the first president of the United States?
+#     """
+
+
+#     documents = [
+#         """
+#         George Washington was an American military officer and
+#         politician who served as the first president of the United States
+#         from 1789 to 1797.
+#         """,
+
+#         """
+#         Abraham Lincoln was the 16th president of the United States.
+#         """,
+
+#         """
+#         Thomas Jefferson was the third president of the United States.
+#         """,
+
+#         """
+#         The United States Constitution was signed in 1787.
+#         """,
+#     ]
+
+
+#     # ==========================================================
+#     # Tokenize
+#     # ==========================================================
+
+#     inputs = tokenizer(
+#         question,
+#         return_tensors="pt",
+#     )
+
+
+#     document_inputs = tokenizer(
+#         documents,
+#         padding=True,
+#         truncation=True,
+#         max_length=512,
+#         return_tensors="pt",
+#     )
+
+
+#     input_ids = inputs.input_ids.to(device)
+#     attention_mask = inputs.attention_mask.to(device)
+
+
+#     # (D, L)
+#     document_ids = document_inputs.input_ids
+
+#     # (D, L)
+#     document_attention_mask = document_inputs.attention_mask
+
+
+#     # add batch dimension
+#     # (1, D, L)
+
+#     document_ids = document_ids.unsqueeze(0).to(device)
+#     document_attention_mask = (
+#         document_attention_mask
+#         .unsqueeze(0)
+#         .to(device)
+#     )
+
+
+#     print("input_ids:", input_ids.shape)
+#     print("document_ids:", document_ids.shape)
+
+
+#     # ==========================================================
+#     # Generate
+#     # ==========================================================
+
+#     with torch.no_grad():
+
+#         outputs = model.generate(
+#             input_ids=input_ids,
+#             attention_mask=attention_mask,
+
+#             # TSRT custom arguments
+#             document_ids=document_ids,
+#             document_padding_mask=document_attention_mask,
+
+#             max_new_tokens=128,
+
+#             do_sample=False,
+
+#             temperature=1.0,
+
+#             eos_token_id=tokenizer.eos_token_id,
+
+#             pad_token_id=tokenizer.pad_token_id,
+
+#             use_cache=True,
+#         )
+
+
+#     # ==========================================================
+#     # Decode
+#     # ==========================================================
+
+#     text = tokenizer.decode(
+#         outputs[0],
+#         skip_special_tokens=True,
+#     )
+
+
+#     print("=" * 60)
+#     print(text)
+#     print("=" * 60)
+
+
+
+# if __name__ == "__main__":
+#     main()
+
 from transformers import AutoModelForCausalLM
+from utils.utils import freeze_for_tsrt_training
 
-model = AutoModelForCausalLM.from_pretrained(
-    "nguyenphantuanduy/TSRT-Qwen3-1.7B",
-    trust_remote_code=True,
-)
 
-print(model)
+MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+
+
+def print_trainable_parameters(model):
+
+    total_params = 0
+    trainable_params = 0
+
+    print("=" * 80)
+    print("Trainable Parameters")
+    print("=" * 80)
+
+    for name, param in model.named_parameters():
+
+        total_params += param.numel()
+
+        if param.requires_grad:
+
+            trainable_params += param.numel()
+
+            print(
+                f"{name:<90} {param.numel():>12,}"
+            )
+
+    print("=" * 80)
+    print(f"Trainable params : {trainable_params:,}")
+    print(f"Total params     : {total_params:,}")
+    print(
+        f"Trainable %      : {100 * trainable_params / total_params:.2f}%"
+    )
+    print("=" * 80)
+
+
+def main():
+
+    print("Loading model...")
+
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+        torch_dtype="auto",
+    )
+
+    print("Applying freeze strategy...")
+
+    freeze_for_tsrt_training(model)
+
+    print_trainable_parameters(model)
+
+
+if __name__ == "__main__":
+    main()
