@@ -2692,11 +2692,11 @@ test emb cache
 #     print(scores.grad)
 
 
-from transformers import AutoConfig, AutoModelForCausalLM
-config = AutoConfig.from_pretrained(
-    "models/tsrt",
-    trust_remote_code=True,
-)
+# from transformers import AutoConfig, AutoModelForCausalLM
+# config = AutoConfig.from_pretrained(
+#     "models/tsrt",
+#     trust_remote_code=True,
+# )
 
 # config.torch_dtype = "bfloat16"
 
@@ -2744,3 +2744,13 @@ config = AutoConfig.from_pretrained(
 
 # print(TSRTForCausalLM.config_class)
 # print(type(TSRTForCausalLM.config_class))
+
+
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "nguyenphantuanduy/TSRT-Qwen3-1.7B",
+    trust_remote_code=True,
+)
+
+print(model)

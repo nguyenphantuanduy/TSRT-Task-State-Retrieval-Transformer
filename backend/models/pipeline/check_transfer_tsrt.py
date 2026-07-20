@@ -159,7 +159,7 @@ def check_transfer():
     print("=" * 60)
 
 
-    tsrt = TSRTForCausalLM.from_pretrained(
+    tsrt = AutoModelForCausalLM.from_pretrained(
         TSRT_PATH,
         torch_dtype=torch.bfloat16,
         device_map="cpu",
@@ -353,70 +353,90 @@ def check_transfer():
 
     print("=" * 60)
 
-from fvcore.nn import FlopCountAnalysis
-
-
-def check_flops():
+def check_parameters():
 
     print("=" * 60)
-    print("CHECK FLOPs")
+    print("CHECK PARAMETERS")
     print("=" * 60)
 
-
-    tsrt = TSRTForCausalLM.from_pretrained(
+    tsrt = AutoModelForCausalLM.from_pretrained(
         TSRT_PATH,
         torch_dtype=torch.float32,
         device_map="cpu",
         trust_remote_code=True,
     )
 
-    tsrt.eval()
+    total_params = sum(
+        p.numel()
+        for p in tsrt.parameters()
+    )
 
-
-    input_ids = torch.randint(
-        0,
-        tsrt.config.vocab_size,
-        (1,512),
+    trainable_params = sum(
+        p.numel()
+        for p in tsrt.parameters()
+        if p.requires_grad
     )
 
 
-    document_ids = torch.randint(
-        0,
-        tsrt.config.vocab_size,
-        (1,4,512),
+    print(
+        f"Total parameters: {total_params:,}"
+    )
+
+    print(
+        f"Total parameters (B): {total_params / 1e9:.3f}B"
+    )
+
+    print(
+        f"Trainable parameters: {trainable_params:,}"
+    )
+
+    print(
+        f"Trainable parameters (B): {trainable_params / 1e9:.3f}B"
     )
 
 
-    document_mask = torch.ones(
-        1,4,512
-    )
+    # optional breakdown
+
+    print("\nParameter breakdown")
+
+    modules = {
+        "Embedding":
+            tsrt.model.embed_tokens,
+
+        "Decoder":
+            tsrt.model.decoder_layers,
+
+        "Encoder":
+            tsrt.model.encoder_layers,
+
+        "TSRT layers":
+            tsrt.model.tsrt_layers,
+
+        "LM head":
+            tsrt.lm_head,
+
+        "Retrieval projection":
+            tsrt.model.retrieval_projection,
+
+        "Retrieval decision":
+            tsrt.model.retrieval_decision_head,
+    }
 
 
-    flops = FlopCountAnalysis(
-        tsrt,
-        (
-            input_ids,
-            document_ids,
-            None,
-            document_mask,
-            None,
+    for name, module in modules.items():
+
+        params = sum(
+            p.numel()
+            for p in module.parameters()
         )
-    )
 
-
-    print(
-        "Total FLOPs:",
-        flops.total()
-    )
-
-
-    print(
-        "GFLOPs:",
-        flops.total()/1e9
-    )
+        print(
+            f"{name:<25}: "
+            f"{params/1e6:.2f}M"
+        )
 
 
 if __name__ == "__main__":
 
     check_transfer()
-    check_flops()
+    check_parameters()
