@@ -104,18 +104,10 @@ def build_tsrt_from_qwen():
 
     print("Building TSRT config...")
 
-    config = TSRTConfig.from_pretrained(
-        QWEN_MODEL
+    config = AutoConfig.from_pretrained(
+        "models/tsrt",
+        trust_remote_code=True
     )
-
-
-    # ==========================================
-    # TSRT architecture
-    # ==========================================
-
-    config.num_decoder_layers = 14
-    config.num_encoder_layers = 14
-    config.num_tsrt_layers = 14
 
 
     print("Initializing TSRT")
