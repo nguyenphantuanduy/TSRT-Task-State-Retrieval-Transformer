@@ -246,3 +246,39 @@ def compute_retrieval_scoring_loss(
         loss = loss / num_items_in_batch
 
     return loss
+
+import torch
+
+
+def compute_positive_negative_scores(
+    usefulness_scores: torch.Tensor,        # (B, L, D), scores in [-1, 1]
+    usefulness_score_matrix: torch.Tensor,  # (B, L, D), {1, 0, -1}
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """
+    Compute mean usefulness score for positive and negative documents.
+
+    Ignore:
+        - label == -1
+
+    Returns:
+        positive_score:
+            Scalar tensor containing the mean score of all positive documents.
+
+        negative_score:
+            Scalar tensor containing the mean score of all negative documents.
+    """
+
+    pos_mask = usefulness_score_matrix == 1
+    neg_mask = usefulness_score_matrix == 0
+
+    if pos_mask.any():
+        positive_score = usefulness_scores[pos_mask].mean()
+    else:
+        positive_score = usefulness_scores.new_zeros(())
+
+    if neg_mask.any():
+        negative_score = usefulness_scores[neg_mask].mean()
+    else:
+        negative_score = usefulness_scores.new_zeros(())
+
+    return positive_score, negative_score

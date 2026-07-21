@@ -52,6 +52,7 @@ from .utils import (
     compute_retrieval_decision_loss,
     compute_retrieval_ranking_loss,
     compute_retrieval_scoring_loss,
+    compute_positive_negative_scores,
 )
 from transformers.modeling_outputs import BaseModelOutputWithPast, CausalLMOutputWithPast
 from transformers.modeling_layers import GradientCheckpointingLayer
@@ -1038,11 +1039,12 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         self.vocab_size = config.vocab_size
         self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
         self.logged_losses = {
-            "loss": None,
             "lm_loss": None,
             "retrieval_decision_loss": None,
             "retrieval_ranking_loss": None,
             "retrieval_scoring_loss": None,
+            "positive_score": None,
+            "negative_score": None,
         }
         # Initialize weights and apply final processing
         self.post_init()
@@ -1127,8 +1129,13 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
                 + 0.3 * retrieval_scoring_loss
             )
 
-        if loss is not None:
-            self.logged_losses["loss"] = loss.detach()
+            positive_score, negative_score = compute_positive_negative_scores(
+                usefulness_scores=usefulness_score,
+                usefulness_score_matrix=usefulness_score_matrix,
+            )
+
+            self.logged_losses["positive_score"] = positive_score.detach()
+            self.logged_losses["negative_score"] = negative_score.detach()
 
         return CausalLMOutputWithPast(
             loss=loss,
