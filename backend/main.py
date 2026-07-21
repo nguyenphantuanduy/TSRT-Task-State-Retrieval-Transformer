@@ -2875,6 +2875,8 @@ def main():
             pad_token_id=tokenizer.pad_token_id,
 
             use_cache=True,
+            top_k=5,
+            usefulness_threshold=0.5,
         )
 
 
