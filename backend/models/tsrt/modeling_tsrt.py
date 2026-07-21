@@ -1335,6 +1335,8 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         retrieval_decision_labels: torch.LongTensor | None = None,
         usefulness_score_matrix: torch.LongTensor | None = None,
         logits_to_keep: int | torch.Tensor = 0,
+        top_k: int | None = None,
+        usefulness_threshold: float | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> CausalLMOutputWithPast:
         outputs: TSRTModelOutputWithPast = self.model(
@@ -1347,6 +1349,8 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
+            top_k=top_k,
+            usefulness_threshold=usefulness_threshold,
             **kwargs,
         )
 
