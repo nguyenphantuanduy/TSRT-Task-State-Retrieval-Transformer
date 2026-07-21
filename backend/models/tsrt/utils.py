@@ -121,18 +121,29 @@ def compute_retrieval_decision_loss(
     retrieval_decision_scores: torch.Tensor,    # (B, L), sigmoid scores in [0, 1]
     retrieval_decision_labels: torch.Tensor,    # (B, L), {0, 1, -1}
     num_items_in_batch: int | None = None,
-) -> torch.Tensor:
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Binary cross entropy loss for retrieval decision.
 
     Ignore:
         - label == -1
+
+    Returns:
+        loss:
+            Scalar BCE loss.
+
+        decision_predict:
+            Mean predicted retrieval score on positive labels (label == 1).
+
+        non_decision_predict:
+            Mean predicted retrieval score on negative labels (label == 0).
     """
 
     valid_mask = retrieval_decision_labels != -1
 
     if not valid_mask.any():
-        return retrieval_decision_scores.new_zeros(())
+        zero = retrieval_decision_scores.new_zeros(())
+        return zero, zero, zero
 
     scores = retrieval_decision_scores[valid_mask]
     targets = retrieval_decision_labels[valid_mask].float()
@@ -148,7 +159,28 @@ def compute_retrieval_decision_loss(
     if num_items_in_batch is not None:
         loss = loss / num_items_in_batch
 
-    return loss
+    # --------------------------------------------------------
+    # Logging statistics
+    # --------------------------------------------------------
+
+    positive_mask = targets == 1
+    negative_mask = targets == 0
+
+    if positive_mask.any():
+        decision_predict = scores[positive_mask].mean()
+    else:
+        decision_predict = retrieval_decision_scores.new_zeros(())
+
+    if negative_mask.any():
+        non_decision_predict = scores[negative_mask].mean()
+    else:
+        non_decision_predict = retrieval_decision_scores.new_zeros(())
+
+    return (
+        loss,
+        decision_predict,
+        non_decision_predict,
+    )
 
 import torch
 

@@ -1,9 +1,11 @@
 from __future__ import annotations
 from collections.abc import Callable
+from dataclasses import dataclass
 from typing import Unpack
 import torch
 import torch.nn as nn
 from transformers import Cache
+from typing import Tuple
 from transformers.models.qwen3.configuration_qwen3 import Qwen3Config
 from transformers.models.qwen3.modeling_qwen3 import (
     Qwen3RMSNorm,
@@ -43,6 +45,7 @@ from .cache_utils import (
     TSRTDecoderCache,
     TSRTDocumentCache,
     TSRTEmbeddingCache,
+    TSRTChosenDocumentCache,
     TSRTCache
 )
 from .utils import (
@@ -65,6 +68,9 @@ from transformers.masking_utils import (
 
 from .modeling_outputs import TSRTModelOutputWithPast
 from transformers.generation import GenerationMixin
+
+RETRIEVAL_DECISION_THRESHOLD = 0.7
+
 @use_kernel_func_from_hub("rotary_pos_emb")
 def apply_rotary_pos_emb_query(
     q,
@@ -652,7 +658,17 @@ class TSRTRetrievalProjection(nn.Module):
         )
 
 
-class TSRTRetrievalMemory(nn.Module):
+@dataclass
+class TSRTRetrievalMemory:
+    """
+    Retrieval memory used by TSRT cross-attention.
+    """
+
+    retrieval_memory: torch.Tensor
+    encoder_hidden_states: torch.Tensor
+    document_padding_mask: torch.Tensor
+
+class TSRTRetrievalMemoryHead(nn.Module):
     """
     Update retrieval memory from usefulness scores and retrieval decisions.
     """
@@ -661,36 +677,274 @@ class TSRTRetrievalMemory(nn.Module):
         self,
         usefulness_score: torch.Tensor,      # (B, L, D)
         retrieval_decision: torch.Tensor,    # (B, L, 1)
-    ) -> torch.Tensor:
-        seq_len = usefulness_score.shape[1]
+        encoder_hidden_states: torch.Tensor, # (B, D, L', h)
+        document_padding_mask: torch.Tensor, # (B, D, L')
+        cache: TSRTChosenDocumentCache,
+        top_k: int | None = None,
+        usefulness_threshold: float | None = None,
+    ) -> TSRTRetrievalMemory:
+        
+        _, _, L_doc, hidden_size = encoder_hidden_states.shape
 
-        retrieval_memory = []
+        if top_k is None and usefulness_threshold is None:
+            seq_len = usefulness_score.shape[1]
 
-        for i in range(seq_len):
-            current_usefulness = usefulness_score[:, i]        # (B, D)
-            current_decision = retrieval_decision[:, i]        # (B, 1)
+            retrieval_memory = []
 
-            if i == 0:
-                current_memory = (
-                    current_usefulness
-                    * current_decision
+            for i in range(seq_len):
+                current_usefulness = usefulness_score[:, i]        # (B, D)
+                current_decision = retrieval_decision[:, i]        # (B, 1)
+
+                if i == 0:
+                    current_memory = (
+                        current_usefulness
+                        * current_decision
+                    )
+                else:
+                    current_memory = (
+                        current_usefulness
+                        * current_decision
+                        + retrieval_memory[-1]
+                        * (1 - current_decision)
+                    )
+
+                retrieval_memory.append(current_memory)
+
+            retrieval_memory = torch.stack(
+                retrieval_memory,
+                dim=1,
+            )   # (B, L, D)
+
+            return TSRTRetrievalMemory(
+                retrieval_memory=retrieval_memory,
+                encoder_hidden_states=encoder_hidden_states,
+                document_padding_mask=document_padding_mask,
+            )
+        
+        else:
+            retrieval_decision = retrieval_decision[:, -1, :].squeeze(-1)       # (B,)
+            usefulness_score = usefulness_score[:, -1, :]                       # (B, D)
+
+            current_choosen_document = []
+            current_retrieval_memory = []
+            current_document_padding_mask = []
+
+            last_chosen_document, last_document_padding_mask, last_retrieval_memory = cache.get() if cache is not None else (None, None, None)
+
+            for sample_idx in range(retrieval_decision.shape[0]):
+                sample_retrieval_decision = retrieval_decision[sample_idx]   # scalar tensor
+                sample_usefulness_score = usefulness_score[sample_idx,:]     # (D,)
+                sample_encoder_hidden_states = encoder_hidden_states[sample_idx, :, :, :]   # (D, L', h)
+                sample_document_padding_mask = document_padding_mask[sample_idx, :, :]      # (D, L')
+
+                if sample_retrieval_decision >= RETRIEVAL_DECISION_THRESHOLD:
+                    # (D,)
+                    valid_document_mask = sample_document_padding_mask.any(dim=-1)
+
+                    # Chỉ giữ các document không phải padding
+                    valid_encoder_hidden_states = sample_encoder_hidden_states[valid_document_mask]   # (D_valid, L', h)
+                    valid_usefulness_score = sample_usefulness_score[valid_document_mask]              # (D_valid,)
+                    valid_document_padding_mask = sample_document_padding_mask[valid_document_mask]    # (D_valid, L')
+
+                    if usefulness_threshold is not None and valid_usefulness_score.size(0) > 0:
+                        usefulness_mask = valid_usefulness_score >= usefulness_threshold
+
+                        valid_encoder_hidden_states = valid_encoder_hidden_states[usefulness_mask]
+                        valid_usefulness_score = valid_usefulness_score[usefulness_mask]
+                        valid_document_padding_mask = valid_document_padding_mask[usefulness_mask]
+
+                    if (
+                        top_k is not None
+                        and valid_usefulness_score.size(0) > 0
+                    ):
+                        k = min(top_k, valid_usefulness_score.size(0))
+
+                        topk_indices = torch.topk(
+                            valid_usefulness_score,
+                            k=k,
+                            dim=0,
+                            largest=True,
+                            sorted=True,
+                        ).indices
+
+                        valid_encoder_hidden_states = valid_encoder_hidden_states[topk_indices]
+                        valid_usefulness_score = valid_usefulness_score[topk_indices]
+                        valid_document_padding_mask = valid_document_padding_mask[topk_indices]
+
+                    valid_retrieval_memory = valid_usefulness_score * sample_retrieval_decision
+
+                else:
+                    if last_chosen_document is not None:
+                        valid_encoder_hidden_states = last_chosen_document[sample_idx]          # (D_cache, L', h)
+                        valid_document_padding_mask = last_document_padding_mask[sample_idx]    # (D_cache, L')
+                        valid_retrieval_memory = last_retrieval_memory[sample_idx]              # (D_cache,)
+                    else:
+                        valid_encoder_hidden_states = encoder_hidden_states.new_empty(
+                            (0, L_doc, hidden_size)
+                        )  # (0, L', h)
+
+                        valid_document_padding_mask = document_padding_mask.new_empty(
+                            (0, L_doc)
+                        )  # (0, L')
+
+                        valid_retrieval_memory = usefulness_score.new_empty(
+                            (0,)
+                        )  # (0,)
+
+                current_choosen_document.append(valid_encoder_hidden_states)
+                current_retrieval_memory.append(valid_retrieval_memory)
+                current_document_padding_mask.append(valid_document_padding_mask)
+
+            D_max = 0
+            L_max = 0
+
+            for padding_mask in current_document_padding_mask:
+                if padding_mask.numel() == 0:
+                    continue
+
+                # (D,)
+                valid_doc_mask = padding_mask.any(dim=-1)
+                D_real = valid_doc_mask.sum().item()
+                D_max = max(D_max, D_real)
+
+                if D_real > 0:
+                    # (D_real,)
+                    token_lengths = padding_mask[valid_doc_mask].sum(dim=-1)
+                    L_real = token_lengths.max().item()
+                    L_max = max(L_max, L_real)
+
+            # Không còn document nào trong toàn batch
+            if D_max == 0:
+                return TSRTRetrievalMemory(
+                    retrieval_memory=None,
+                    encoder_hidden_states=None,
+                    document_padding_mask=None,
                 )
-            else:
-                current_memory = (
-                    current_usefulness
-                    * current_decision
-                    + retrieval_memory[-1]
-                    * (1 - current_decision)
-                )
+            
+            # ------------------------------------------------------------
+            # Pad & stack
+            # ------------------------------------------------------------
+            batch_encoder_hidden_states = []
+            batch_retrieval_memory = []
+            batch_document_padding_mask = []
 
-            retrieval_memory.append(current_memory)
+            for hidden_states, retrieval_memory, padding_mask in zip(
+                current_choosen_document,
+                current_retrieval_memory,
+                current_document_padding_mask,
+            ):
+                # --------------------------------------------------------
+                # Empty sample
+                # --------------------------------------------------------
+                if hidden_states.size(0) == 0:
+                    batch_encoder_hidden_states.append(
+                        hidden_states.new_zeros(D_max, L_max, hidden_size)
+                    )
 
-        return torch.stack(
-            retrieval_memory,
-            dim=1,
-        )   # (B, L, D)
+                    batch_retrieval_memory.append(
+                        retrieval_memory.new_zeros(D_max)
+                    )
 
+                    batch_document_padding_mask.append(
+                        padding_mask.new_zeros(D_max, L_max)
+                    )
 
+                    continue
+
+                # --------------------------------------------------------
+                # Remove padded docs
+                # --------------------------------------------------------
+                valid_doc_mask = padding_mask.any(dim=-1)
+
+                hidden_states = hidden_states[valid_doc_mask]
+                retrieval_memory = retrieval_memory[valid_doc_mask]
+                padding_mask = padding_mask[valid_doc_mask]
+
+                D_real = hidden_states.size(0)
+
+                # --------------------------------------------------------
+                # Truncate sequence length to L_max
+                # --------------------------------------------------------
+                hidden_states = hidden_states[:, :L_max]
+                padding_mask = padding_mask[:, :L_max]
+
+                # --------------------------------------------------------
+                # Pad L
+                # --------------------------------------------------------
+                pad_L = L_max - hidden_states.size(1)
+
+                if pad_L > 0:
+                    hidden_states = F.pad(
+                        hidden_states,
+                        (0, 0, 0, pad_L),
+                        value=0,
+                    )
+
+                    padding_mask = F.pad(
+                        padding_mask,
+                        (0, pad_L),
+                        value=0,
+                    )
+
+                # --------------------------------------------------------
+                # Pad D
+                # --------------------------------------------------------
+                pad_D = D_max - D_real
+
+                if pad_D > 0:
+                    hidden_states = torch.cat(
+                        [
+                            hidden_states,
+                            hidden_states.new_zeros(
+                                pad_D,
+                                L_max,
+                                hidden_size,
+                            ),
+                        ],
+                        dim=0,
+                    )
+
+                    retrieval_memory = torch.cat(
+                        [
+                            retrieval_memory,
+                            retrieval_memory.new_zeros(
+                                pad_D,
+                            ),
+                        ],
+                        dim=0,
+                    )
+
+                    padding_mask = torch.cat(
+                        [
+                            padding_mask,
+                            padding_mask.new_zeros(
+                                pad_D,
+                                L_max,
+                            ),
+                        ],
+                        dim=0,
+                    )
+
+                batch_encoder_hidden_states.append(hidden_states)
+                batch_retrieval_memory.append(retrieval_memory)
+                batch_document_padding_mask.append(padding_mask)
+
+            encoder_hidden_states = torch.stack(batch_encoder_hidden_states, dim=0)
+            retrieval_memory = torch.stack(batch_retrieval_memory, dim=0)
+            document_padding_mask = torch.stack(batch_document_padding_mask, dim=0)
+
+            cache.update(
+                chosen_document=encoder_hidden_states,
+                document_padding_mask=document_padding_mask,
+                retrieval_memory=retrieval_memory,
+            )
+
+            return TSRTRetrievalMemory(
+                retrieval_memory=retrieval_memory,
+                encoder_hidden_states=encoder_hidden_states,
+                document_padding_mask=document_padding_mask,
+            )
+    
 class TSRTLayer(GradientCheckpointingLayer):
 
     def __init__(self, config: TSRTConfig, self_attn_layer_idx: int, cross_attn_layer_idx: int):
@@ -738,25 +992,28 @@ class TSRTLayer(GradientCheckpointingLayer):
         residual = decoder_hidden_states
         decoder_hidden_states = self.post_self_attention_layernorm(decoder_hidden_states)
 
-        # Cross Attention
-        decoder_hidden_states, _ = self.cross_attn(
-            decoder_hidden_states=decoder_hidden_states,
-            encoder_hidden_states=encoder_hidden_states,
-            retrieval_memory=retrieval_memory,
-            decoder_position_embeddings=decoder_position_embeddings,
-            encoder_position_embeddings=encoder_position_embeddings,
-            attention_mask=cross_attention_mask,
-            past_key_values=cross_attn_past_key_values,
-            use_cache=use_cache,
-            position_ids=position_ids,
-            **kwargs,
-        )
+        if encoder_hidden_states is not None: 
+            # Cross Attention
+            decoder_hidden_states, _ = self.cross_attn(
+                decoder_hidden_states=decoder_hidden_states,
+                encoder_hidden_states=encoder_hidden_states,
+                retrieval_memory=retrieval_memory,
+                decoder_position_embeddings=decoder_position_embeddings,
+                encoder_position_embeddings=encoder_position_embeddings,
+                attention_mask=cross_attention_mask,
+                past_key_values=cross_attn_past_key_values,
+                use_cache=use_cache,
+                position_ids=position_ids,
+                **kwargs,
+            )
 
-        decoder_hidden_states = residual + decoder_hidden_states
+            decoder_hidden_states = residual + decoder_hidden_states
+
+            
+            residual = decoder_hidden_states
+            decoder_hidden_states = self.post_cross_attention_layernorm(decoder_hidden_states)
 
         # Fully Connected
-        residual = decoder_hidden_states
-        decoder_hidden_states = self.post_cross_attention_layernorm(decoder_hidden_states)
         decoder_hidden_states = self.mlp(decoder_hidden_states)
         decoder_hidden_states = residual + decoder_hidden_states
 
@@ -820,7 +1077,7 @@ class TSRTModel(TSRTPreTrainedModel):
 
         self.retrieval_decision_head = TSRTRetrievalDecisionHead(config)
         self.retrieval_projection = TSRTRetrievalProjection(config)
-        self.retrieval_memory = TSRTRetrievalMemory()
+        self.retrieval_memory_head = TSRTRetrievalMemoryHead()
 
         # Initialize weights and apply final processing
         self.post_init()
@@ -838,6 +1095,8 @@ class TSRTModel(TSRTPreTrainedModel):
         past_key_values: Cache | None = None,
         inputs_embeds: torch.FloatTensor | None = None,
         use_cache: bool | None = None,
+        top_k: int | None = None,
+        usefulness_threshold: float | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> BaseModelOutputWithPast:
         # ==================================================
@@ -990,17 +1249,26 @@ class TSRTModel(TSRTPreTrainedModel):
         # Calculate retrieval memory
         # ==================================================
 
-        retrieval_memory = self.retrieval_memory(
-            usefulness_score,
-            retrieval_decision,
+        retrieval_memory_head_output = self.retrieval_memory_head(
+            usefulness_score=usefulness_score,
+            retrieval_decision=retrieval_decision,
+            encoder_hidden_states=encoder_hidden_states,
+            document_padding_mask=document_padding_mask,
+            cache=past_key_values.chosen_document_cache,
+            top_k=top_k,
+            usefulness_threshold=usefulness_threshold,
         )
+
+        retrieval_memory = retrieval_memory_head_output.retrieval_memory
+        encoder_hidden_states = retrieval_memory_head_output.encoder_hidden_states
+        document_padding_mask_after_retrieval = retrieval_memory_head_output.document_padding_mask
 
         # ==================================================
         # TSRT Decode 
         # ==================================================
         tsrt_hidden_states = decoder_hidden_states
         decoder_offset = self.config.num_decoder_layers
-        cross_attention_mask = prepare_cross_attention_mask(document_padding_mask)
+        cross_attention_mask = prepare_cross_attention_mask(document_padding_mask_after_retrieval) if document_padding_mask_after_retrieval is not None else None
 
         for i, tsrt_layer in enumerate(self.tsrt_layers[: self.config.num_tsrt_layers]):
             tsrt_hidden_states = tsrt_layer(
@@ -1045,6 +1313,8 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             "retrieval_scoring_loss": None,
             "positive_score": None,
             "negative_score": None,
+            "decision_predict": None,
+            "non_decision_predict": None,
         }
         # Initialize weights and apply final processing
         self.post_init()
@@ -1100,13 +1370,15 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         
         if retrieval_decision_labels is not None:
             retrieval_decision_score = outputs.retrieval_decision
-            retrieval_decision_loss = compute_retrieval_decision_loss(
+            retrieval_decision_loss, decision_predict, non_decision_predict = compute_retrieval_decision_loss(
                 retrieval_decision_scores=retrieval_decision_score,
                 retrieval_decision_labels=retrieval_decision_labels,
                 num_items_in_batch=num_items_in_batch,
             )
             loss = loss + 0.3 * retrieval_decision_loss
             self.logged_losses["retrieval_decision_loss"] = retrieval_decision_loss.detach()
+            self.logged_losses["decision_predict"] = decision_predict.detach()
+            self.logged_losses["non_decision_predict"] = non_decision_predict.detach()
 
         if usefulness_score_matrix is not None:
             usefulness_score = outputs.usefulness_score

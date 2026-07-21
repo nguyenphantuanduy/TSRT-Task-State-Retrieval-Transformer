@@ -240,6 +240,56 @@ class TSRTEmbeddingCache:
         """
         return self.doc_embs
 
+import torch
+
+
+class TSRTChosenDocumentCache:
+    """
+    Cache storing the selected documents from the latest retrieval step.
+    """
+
+    def __init__(self):
+        self.chosen_document: torch.Tensor | None = None
+        self.document_padding_mask: torch.Tensor | None = None
+        self.retrieval_memory: torch.Tensor | None = None
+
+    def update(
+        self,
+        chosen_document: torch.Tensor,
+        document_padding_mask: torch.Tensor,
+        retrieval_memory: torch.Tensor,
+    ) -> None:
+        """
+        Overwrite the cached chosen document tensor, padding mask,
+        and retrieval memory.
+        """
+        self.chosen_document = chosen_document
+        self.document_padding_mask = document_padding_mask
+        self.retrieval_memory = retrieval_memory
+
+    def get(
+        self,
+    ) -> tuple[
+        torch.Tensor | None,
+        torch.Tensor | None,
+        torch.Tensor | None,
+    ]:
+        """
+        Return the cached chosen document tensor, padding mask,
+        and retrieval memory.
+        """
+        return (
+            self.chosen_document,
+            self.document_padding_mask,
+            self.retrieval_memory,
+        )
+
+    def has_cache(self) -> bool:
+        """
+        Return True if a chosen document has been cached.
+        """
+        return self.chosen_document is not None
+    
 
 class TSRTCache(Cache):
     def __init__(
@@ -264,6 +314,8 @@ class TSRTCache(Cache):
         )
 
         self.embedding_cache = TSRTEmbeddingCache()
+
+        self.chosen_document_cache = TSRTChosenDocumentCache()
 
     # =========================
     # CORE (HF sẽ gọi)
