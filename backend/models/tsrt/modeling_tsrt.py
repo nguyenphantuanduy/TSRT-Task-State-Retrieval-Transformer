@@ -680,13 +680,13 @@ class TSRTRetrievalMemoryHead(nn.Module):
         encoder_hidden_states: torch.Tensor, # (B, D, L', h)
         document_padding_mask: torch.Tensor, # (B, D, L')
         cache: TSRTChosenDocumentCache,
-        top_k: int | None = None,
+        retrieve_top_k: int | None = None,
         usefulness_threshold: float | None = None,
     ) -> TSRTRetrievalMemory:
         
         _, _, L_doc, hidden_size = encoder_hidden_states.shape
 
-        if top_k is None and usefulness_threshold is None:
+        if retrieve_top_k is None and usefulness_threshold is None:
             seq_len = usefulness_score.shape[1]
 
             retrieval_memory = []
@@ -754,10 +754,10 @@ class TSRTRetrievalMemoryHead(nn.Module):
                         valid_document_padding_mask = valid_document_padding_mask[usefulness_mask]
 
                     if (
-                        top_k is not None
+                        retrieve_top_k is not None
                         and valid_usefulness_score.size(0) > 0
                     ):
-                        k = min(top_k, valid_usefulness_score.size(0))
+                        k = min(retrieve_top_k, valid_usefulness_score.size(0))
 
                         topk_indices = torch.topk(
                             valid_usefulness_score,
@@ -1095,7 +1095,7 @@ class TSRTModel(TSRTPreTrainedModel):
         past_key_values: Cache | None = None,
         inputs_embeds: torch.FloatTensor | None = None,
         use_cache: bool | None = None,
-        top_k: int | None = None,
+        retrieve_top_k: int | None = None,
         usefulness_threshold: float | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> BaseModelOutputWithPast:
@@ -1255,7 +1255,7 @@ class TSRTModel(TSRTPreTrainedModel):
             encoder_hidden_states=encoder_hidden_states,
             document_padding_mask=document_padding_mask,
             cache=past_key_values.chosen_document_cache,
-            top_k=top_k,
+            retrieve_top_k=retrieve_top_k,
             usefulness_threshold=usefulness_threshold,
         )
 
@@ -1335,7 +1335,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         retrieval_decision_labels: torch.LongTensor | None = None,
         usefulness_score_matrix: torch.LongTensor | None = None,
         logits_to_keep: int | torch.Tensor = 0,
-        top_k: int | None = None,
+        retrieve_top_k: int | None = None,
         usefulness_threshold: float | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> CausalLMOutputWithPast:
@@ -1349,7 +1349,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             past_key_values=past_key_values,
             inputs_embeds=inputs_embeds,
             use_cache=use_cache,
-            top_k=top_k,
+            retrieve_top_k=retrieve_top_k,
             usefulness_threshold=usefulness_threshold,
             **kwargs,
         )
