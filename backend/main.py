@@ -2894,8 +2894,8 @@ def main():
 
 
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
 
 # from transformers import AutoModelForCausalLM
 # from utils.utils import freeze_for_tsrt_training
