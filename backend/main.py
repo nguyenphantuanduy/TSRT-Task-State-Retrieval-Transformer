@@ -2746,151 +2746,151 @@ test emb cache
 # print(type(TSRTForCausalLM.config_class))
 
 
-# import torch
-# from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
-# MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
 
 
-# def main():
+def main():
 
-#     device = "cuda"
+    device = "cuda"
 
-#     print("Loading tokenizer...")
-#     tokenizer = AutoTokenizer.from_pretrained(
-#         MODEL_NAME,
-#         trust_remote_code=True,
-#     )
-
-
-#     print("Loading model...")
-#     model = AutoModelForCausalLM.from_pretrained(
-#         MODEL_NAME,
-#         trust_remote_code=True,
-#         torch_dtype=torch.bfloat16,
-#         device_map="cuda",
-#     )
-
-#     model.eval()
+    print("Loading tokenizer...")
+    tokenizer = AutoTokenizer.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+    )
 
 
-#     # ==========================================================
-#     # Input question
-#     # ==========================================================
+    print("Loading model...")
+    model = AutoModelForCausalLM.from_pretrained(
+        MODEL_NAME,
+        trust_remote_code=True,
+        torch_dtype=torch.bfloat16,
+        device_map="cuda",
+    )
 
-#     question = """
-#     Who was the first president of the United States?
-#     """
-
-
-#     documents = [
-#         """
-#         George Washington was an American military officer and
-#         politician who served as the first president of the United States
-#         from 1789 to 1797.
-#         """,
-
-#         """
-#         Abraham Lincoln was the 16th president of the United States.
-#         """,
-
-#         """
-#         Thomas Jefferson was the third president of the United States.
-#         """,
-
-#         """
-#         The United States Constitution was signed in 1787.
-#         """,
-#     ]
+    model.eval()
 
 
-#     # ==========================================================
-#     # Tokenize
-#     # ==========================================================
+    # ==========================================================
+    # Input question
+    # ==========================================================
 
-#     inputs = tokenizer(
-#         question,
-#         return_tensors="pt",
-#     )
-
-
-#     document_inputs = tokenizer(
-#         documents,
-#         padding=True,
-#         truncation=True,
-#         max_length=512,
-#         return_tensors="pt",
-#     )
+    question = """
+    Who was the first president of the United States?
+    """
 
 
-#     input_ids = inputs.input_ids.to(device)
-#     attention_mask = inputs.attention_mask.to(device)
+    documents = [
+        """
+        George Washington was an American military officer and
+        politician who served as the first president of the United States
+        from 1789 to 1797.
+        """,
+
+        """
+        Abraham Lincoln was the 16th president of the United States.
+        """,
+
+        """
+        Thomas Jefferson was the third president of the United States.
+        """,
+
+        """
+        The United States Constitution was signed in 1787.
+        """,
+    ]
 
 
-#     # (D, L)
-#     document_ids = document_inputs.input_ids
+    # ==========================================================
+    # Tokenize
+    # ==========================================================
 
-#     # (D, L)
-#     document_attention_mask = document_inputs.attention_mask
-
-
-#     # add batch dimension
-#     # (1, D, L)
-
-#     document_ids = document_ids.unsqueeze(0).to(device)
-#     document_attention_mask = (
-#         document_attention_mask
-#         .unsqueeze(0)
-#         .to(device)
-#     )
+    inputs = tokenizer(
+        question,
+        return_tensors="pt",
+    )
 
 
-#     print("input_ids:", input_ids.shape)
-#     print("document_ids:", document_ids.shape)
+    document_inputs = tokenizer(
+        documents,
+        padding=True,
+        truncation=True,
+        max_length=512,
+        return_tensors="pt",
+    )
 
 
-#     # ==========================================================
-#     # Generate
-#     # ==========================================================
-
-#     with torch.no_grad():
-
-#         outputs = model.generate(
-#             input_ids=input_ids,
-#             attention_mask=attention_mask,
-
-#             # TSRT custom arguments
-#             document_ids=document_ids,
-#             document_padding_mask=document_attention_mask,
-
-#             max_new_tokens=128,
-
-#             do_sample=False,
-
-#             temperature=1.0,
-
-#             eos_token_id=tokenizer.eos_token_id,
-
-#             pad_token_id=tokenizer.pad_token_id,
-
-#             use_cache=True,
-#         )
+    input_ids = inputs.input_ids.to(device)
+    attention_mask = inputs.attention_mask.to(device)
 
 
-#     # ==========================================================
-#     # Decode
-#     # ==========================================================
+    # (D, L)
+    document_ids = document_inputs.input_ids
 
-#     text = tokenizer.decode(
-#         outputs[0],
-#         skip_special_tokens=True,
-#     )
+    # (D, L)
+    document_attention_mask = document_inputs.attention_mask
 
 
-#     print("=" * 60)
-#     print(text)
-#     print("=" * 60)
+    # add batch dimension
+    # (1, D, L)
+
+    document_ids = document_ids.unsqueeze(0).to(device)
+    document_attention_mask = (
+        document_attention_mask
+        .unsqueeze(0)
+        .to(device)
+    )
+
+
+    print("input_ids:", input_ids.shape)
+    print("document_ids:", document_ids.shape)
+
+
+    # ==========================================================
+    # Generate
+    # ==========================================================
+
+    with torch.no_grad():
+
+        outputs = model.generate(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+
+            # TSRT custom arguments
+            document_ids=document_ids,
+            document_padding_mask=document_attention_mask,
+
+            max_new_tokens=128,
+
+            do_sample=False,
+
+            temperature=1.0,
+
+            eos_token_id=tokenizer.eos_token_id,
+
+            pad_token_id=tokenizer.pad_token_id,
+
+            use_cache=True,
+        )
+
+
+    # ==========================================================
+    # Decode
+    # ==========================================================
+
+    text = tokenizer.decode(
+        outputs[0],
+        skip_special_tokens=True,
+    )
+
+
+    print("=" * 60)
+    print(text)
+    print("=" * 60)
 
 
 
@@ -2953,238 +2953,3 @@ test emb cache
 
 # if __name__ == "__main__":
 #     main()
-
-import torch
-
-# from retrieval_memory import (
-#     TSRTRetrievalMemoryHead,
-#     TSRTChosenDocumentCache,
-# )
-from models.tsrt.modeling_tsrt import TSRTRetrievalMemoryHead
-from models.tsrt.cache_utils import TSRTChosenDocumentCache
-
-
-torch.manual_seed(42)
-
-
-def print_title(title):
-    print("\n" + "=" * 80)
-    print(title)
-    print("=" * 80)
-
-
-def test_cache():
-    print_title("TEST CACHE")
-
-    cache = TSRTChosenDocumentCache()
-
-    print("Has cache:", cache.has_cache())
-
-    chosen_document = torch.randn(2, 3, 4, 8)
-    padding_mask = torch.ones(2, 3, 4, dtype=torch.bool)
-    retrieval_memory = torch.randn(2, 3)
-
-    cache.update(
-        chosen_document,
-        padding_mask,
-        retrieval_memory,
-    )
-
-    print("Has cache:", cache.has_cache())
-
-    doc, mask, memory = cache.get()
-
-    print(doc.shape)
-    print(mask.shape)
-    print(memory.shape)
-
-
-def test_training_all_retrieve():
-    print_title("TRAINING MODE - ALL RETRIEVE")
-
-    B = 2
-    L = 4
-    D = 3
-    L_doc = 5
-    H = 8
-
-    usefulness_score = torch.rand(B, L, D)
-
-    retrieval_decision = torch.ones(B, L, 1)
-
-    encoder_hidden_states = torch.randn(
-        B,
-        D,
-        L_doc,
-        H,
-    )
-
-    document_padding_mask = torch.ones(
-        B,
-        D,
-        L_doc,
-        dtype=torch.bool,
-    )
-
-    head = TSRTRetrievalMemoryHead()
-
-    output = head(
-        usefulness_score,
-        retrieval_decision,
-        encoder_hidden_states,
-        document_padding_mask,
-        cache=None,
-    )
-
-    print("retrieval_memory shape")
-    print(output.retrieval_memory.shape)
-
-    print(output.retrieval_memory)
-
-
-def test_training_mixed():
-    print_title("TRAINING MODE - MIXED DECISION")
-
-    B = 1
-    L = 5
-    D = 4
-    L_doc = 6
-    H = 8
-
-    usefulness_score = torch.tensor(
-        [
-            [
-                [1.0, 2.0, 3.0, 4.0],
-                [5.0, 6.0, 7.0, 8.0],
-                [9.0, 10.0, 11.0, 12.0],
-                [13.0, 14.0, 15.0, 16.0],
-                [17.0, 18.0, 19.0, 20.0],
-            ]
-        ]
-    )
-
-    retrieval_decision = torch.tensor(
-        [
-            [
-                [1],
-                [0],
-                [0],
-                [1],
-                [0],
-            ]
-        ],
-        dtype=torch.float,
-    )
-
-    encoder_hidden_states = torch.randn(
-        B,
-        D,
-        L_doc,
-        H,
-    )
-
-    document_padding_mask = torch.ones(
-        B,
-        D,
-        L_doc,
-        dtype=torch.bool,
-    )
-
-    head = TSRTRetrievalMemoryHead()
-
-    output = head(
-        usefulness_score,
-        retrieval_decision,
-        encoder_hidden_states,
-        document_padding_mask,
-        cache=None,
-    )
-
-    print("Expected")
-
-    print(torch.tensor([
-        [
-            [1,2,3,4],
-            [1,2,3,4],
-            [1,2,3,4],
-            [13,14,15,16],
-            [13,14,15,16],
-        ]
-    ], dtype=torch.float))
-
-    print()
-
-    print("Actual")
-
-    print(output.retrieval_memory)
-
-
-def test_training_random():
-    print_title("TRAINING MODE - RANDOM")
-
-    B = 3
-    L = 6
-    D = 5
-    L_doc = 7
-    H = 16
-
-    usefulness_score = torch.rand(B, L, D)
-
-    retrieval_decision = torch.randint(
-        0,
-        2,
-        (B, L, 1),
-    ).float()
-
-    encoder_hidden_states = torch.randn(
-        B,
-        D,
-        L_doc,
-        H,
-    )
-
-    document_padding_mask = torch.ones(
-        B,
-        D,
-        L_doc,
-        dtype=torch.bool,
-    )
-
-    head = TSRTRetrievalMemoryHead()
-
-    output = head(
-        usefulness_score,
-        retrieval_decision,
-        encoder_hidden_states,
-        document_padding_mask,
-        cache=None,
-    )
-
-    print("decision")
-
-    print(retrieval_decision.squeeze(-1))
-
-    print()
-
-    print("retrieval memory")
-
-    print(output.retrieval_memory)
-
-    print()
-
-    print(output.retrieval_memory.shape)
-
-
-def main():
-
-    test_cache()
-
-    test_training_all_retrieve()
-
-    test_training_mixed()
-
-    test_training_random()
-
-
-if __name__ == "__main__":
-    main()
