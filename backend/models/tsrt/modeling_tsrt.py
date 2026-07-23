@@ -1317,7 +1317,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             "lm_loss": None,
             "retrieval_decision_loss": None,
             "retrieval_ranking_loss": None,
-            "retrieval_scoring_loss": None,
+            # "retrieval_scoring_loss": None,
             "positive_score": None,
             "negative_score": None,
             "decision_predict": None,
@@ -1401,16 +1401,16 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             )
             self.logged_losses["retrieval_ranking_loss"] = retrieval_ranking_loss.detach()
 
-            retrieval_scoring_loss = compute_retrieval_scoring_loss(
-                usefulness_scores=usefulness_score,
-                usefulness_score_matrix=usefulness_score_matrix,
-            )
-            self.logged_losses["retrieval_scoring_loss"] = retrieval_scoring_loss.detach()
+            # retrieval_scoring_loss = compute_retrieval_scoring_loss(
+            #     usefulness_scores=usefulness_score,
+            #     usefulness_score_matrix=usefulness_score_matrix,
+            # )
+            # self.logged_losses["retrieval_scoring_loss"] = retrieval_scoring_loss.detach()
 
             loss = (
                 loss
-                + 0.3 * (retrieval_ranking_loss / 32)
-                + 0.3 * (retrieval_scoring_loss / 32)
+                + 0.6 * (retrieval_ranking_loss / 32)
+                # + 0.3 * (retrieval_scoring_loss / 32)
             )
 
             positive_score, negative_score = compute_positive_negative_scores(
