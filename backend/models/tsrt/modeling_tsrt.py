@@ -1168,7 +1168,7 @@ class TSRTModel(TSRTPreTrainedModel):
 
         if past_key_values is not None and past_key_values.document_cache.has_encoder_state():
             encoder_hidden_states = past_key_values.document_cache.get_encoder_state()
-            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
             encoder_position_ids = encoder_position_ids.unsqueeze(0)
 
             encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
@@ -1180,7 +1180,7 @@ class TSRTModel(TSRTPreTrainedModel):
                 document_ids.shape[-1],
             )
             encoder_hidden_states = self.embed_tokens(document_ids)
-            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
             encoder_position_ids = encoder_position_ids.unsqueeze(0)
 
             encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
@@ -1263,7 +1263,7 @@ class TSRTModel(TSRTPreTrainedModel):
         encoder_hidden_states = retrieval_memory_head_output.encoder_hidden_states
         document_padding_mask_after_retrieval = retrieval_memory_head_output.document_padding_mask
 
-        encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
+        encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
         encoder_position_ids = encoder_position_ids.unsqueeze(0)
         encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
 
