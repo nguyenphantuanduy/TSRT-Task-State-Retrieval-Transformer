@@ -82,7 +82,7 @@ def train():
 
     collator = TSRTDataCollator(
         tokenizer=tokenizer,
-        document_max_length=1024,
+        document_max_length=512,
     )
 
     # =====================================================
