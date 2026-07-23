@@ -1168,7 +1168,7 @@ class TSRTModel(TSRTPreTrainedModel):
 
         if past_key_values is not None and past_key_values.document_cache.has_encoder_state():
             encoder_hidden_states = past_key_values.document_cache.get_encoder_state()
-            encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
             encoder_position_ids = encoder_position_ids.unsqueeze(0)
 
             encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
