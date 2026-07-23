@@ -680,6 +680,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
         encoder_hidden_states: torch.Tensor, # (B, D, L', h)
         document_padding_mask: torch.Tensor, # (B, D, L')
         cache: TSRTChosenDocumentCache,
+        document_cache: TSRTDocumentCache,
         retrieve_top_k: int | None = None,
         usefulness_threshold: float | None = None,
     ) -> TSRTRetrievalMemory:
@@ -738,6 +739,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
                 sample_document_padding_mask = document_padding_mask[sample_idx, :, :]      # (D, L')
 
                 if sample_retrieval_decision >= RETRIEVAL_DECISION_THRESHOLD:
+                    if document_cache is not None: document_cache.reset_kv()
                     # (D,)
                     valid_document_mask = sample_document_padding_mask.any(dim=-1)
 
@@ -932,6 +934,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
             encoder_hidden_states = torch.stack(batch_encoder_hidden_states, dim=0)
             retrieval_memory = torch.stack(batch_retrieval_memory, dim=0)
             document_padding_mask = torch.stack(batch_document_padding_mask, dim=0)
+            print(document_padding_mask)
 
             cache.update(
                 chosen_document=encoder_hidden_states,
@@ -1258,6 +1261,7 @@ class TSRTModel(TSRTPreTrainedModel):
             cache=past_key_values.chosen_document_cache if past_key_values is not None else None,
             retrieve_top_k=retrieve_top_k,
             usefulness_threshold=usefulness_threshold,
+            document_cache=past_key_values.document_cache if past_key_values is not None else None,
         )
 
         retrieval_memory = retrieval_memory_head_output.retrieval_memory
