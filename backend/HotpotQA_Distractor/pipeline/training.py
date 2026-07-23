@@ -82,7 +82,7 @@ def train():
 
     collator = TSRTDataCollator(
         tokenizer=tokenizer,
-        document_max_length=512,
+        document_max_length=384,
     )
 
     # =====================================================
@@ -99,7 +99,7 @@ def train():
         learning_rate=2e-5,
         weight_decay=0.01,
 
-        num_train_epochs=0.5,
+        num_train_epochs=0.3,
 
         bf16=True,
 

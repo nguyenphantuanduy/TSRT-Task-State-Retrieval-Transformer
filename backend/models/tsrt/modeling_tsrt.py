@@ -1409,8 +1409,8 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
             loss = (
                 loss
-                + 0.3 * retrieval_ranking_loss
-                + 0.2 * retrieval_scoring_loss
+                + 0.3 * (retrieval_ranking_loss / 32)
+                + 0.2 * (retrieval_scoring_loss / 32)
             )
 
             positive_score, negative_score = compute_positive_negative_scores(
