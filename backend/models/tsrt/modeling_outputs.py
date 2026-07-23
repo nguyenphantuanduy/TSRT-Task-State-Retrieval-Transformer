@@ -11,6 +11,6 @@ class TSRTModelOutputWithPast(BaseModelOutputWithPast):
     """
     Base model output for TSRT.
     """
-
+    retrieval_decision_logits: torch.FloatTensor | None = None
     retrieval_decision: torch.FloatTensor | None = None
     usefulness_score: torch.FloatTensor | None = None

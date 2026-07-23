@@ -118,8 +118,9 @@ import torch.nn.functional as F
 
 
 def compute_retrieval_decision_loss(
-    retrieval_decision_scores: torch.Tensor,    # (B, L), sigmoid scores in [0, 1]
-    retrieval_decision_labels: torch.Tensor,    # (B, L), {0, 1, -1}
+    retrieval_decision_logits: torch.Tensor,   # (B, L), raw logits
+    retrieval_decision_scores: torch.Tensor,   # (B, L), sigmoid scores in [0, 1]
+    retrieval_decision_labels: torch.Tensor,   # (B, L), {0, 1, -1}
     num_items_in_batch: int | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
@@ -128,30 +129,30 @@ def compute_retrieval_decision_loss(
     Ignore:
         - label == -1
 
-    Returns:
-        loss:
-            Scalar BCE loss.
+    Loss:
+        - Computed from logits using BCEWithLogitsLoss.
 
-        decision_predict:
-            Mean predicted retrieval score on positive labels (label == 1).
-
-        non_decision_predict:
-            Mean predicted retrieval score on negative labels (label == 0).
+    Logging:
+        - Prediction statistics use sigmoid scores.
     """
 
     valid_mask = retrieval_decision_labels != -1
 
     if not valid_mask.any():
-        zero = retrieval_decision_scores.new_zeros(())
+        zero = retrieval_decision_logits.new_zeros(())
         return zero, zero, zero
 
+    logits = retrieval_decision_logits[valid_mask]
     scores = retrieval_decision_scores[valid_mask]
     targets = retrieval_decision_labels[valid_mask].float()
 
     reduction = "mean" if num_items_in_batch is None else "sum"
 
-    loss = F.binary_cross_entropy(
-        scores,
+    # --------------------------------------------------------
+    # Loss on logits (AMP safe)
+    # --------------------------------------------------------
+    loss = F.binary_cross_entropy_with_logits(
+        logits,
         targets,
         reduction=reduction,
     )
@@ -160,7 +161,7 @@ def compute_retrieval_decision_loss(
         loss = loss / num_items_in_batch
 
     # --------------------------------------------------------
-    # Logging statistics
+    # Logging statistics (use sigmoid scores)
     # --------------------------------------------------------
 
     positive_mask = targets == 1

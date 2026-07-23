@@ -461,7 +461,7 @@ class TSRTRetrievalDecisionHead(nn.Module):
             ),
         )
 
-        self.activation = nn.Sigmoid()
+        # self.activation = nn.Sigmoid()
 
     def forward(
         self,
@@ -479,9 +479,9 @@ class TSRTRetrievalDecisionHead(nn.Module):
 
         logits = self.mlp(hidden_states)
 
-        decision = self.activation(logits)
+        # decision = self.activation(logits)
 
-        return decision
+        return logits
     
 
 class TSRTRetrievalProjection(nn.Module):
@@ -1207,7 +1207,8 @@ class TSRTModel(TSRTPreTrainedModel):
         # Calculate retrieval decision
         # ==================================================
 
-        retrieval_decision = self.retrieval_decision_head(decoder_hidden_states) 
+        retrieval_decision_logits = self.retrieval_decision_head(decoder_hidden_states) 
+        retrieval_decision = torch.sigmoid(retrieval_decision_logits)
         if question_mask is not None:
             question_mask = question_mask.unsqueeze(-1)
 
@@ -1298,6 +1299,7 @@ class TSRTModel(TSRTPreTrainedModel):
             past_key_values=past_key_values,
             retrieval_decision=retrieval_decision.squeeze(-1),
             usefulness_score=usefulness_score,
+            retrieval_decision_logits=retrieval_decision_logits,
         )
 
 
@@ -1378,10 +1380,12 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             self.logged_losses["lm_loss"] = lm_loss.detach()
         
         if retrieval_decision_labels is not None:
-            retrieval_decision_score = outputs.retrieval_decision
+            retrieval_decision_logits = outputs.retrieval_decision_logits
+            retrieval_decision_scores = outputs.retrieval_decision
             retrieval_decision_loss, decision_predict, non_decision_predict = compute_retrieval_decision_loss(
-                retrieval_decision_scores=retrieval_decision_score,
+                retrieval_decision_logits=retrieval_decision_logits,
                 retrieval_decision_labels=retrieval_decision_labels,
+                retrieval_decision_scores=retrieval_decision_scores,
                 num_items_in_batch=num_items_in_batch,
             )
             loss = loss + 0.3 * retrieval_decision_loss
