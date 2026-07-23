@@ -1263,9 +1263,10 @@ class TSRTModel(TSRTPreTrainedModel):
         encoder_hidden_states = retrieval_memory_head_output.encoder_hidden_states
         document_padding_mask_after_retrieval = retrieval_memory_head_output.document_padding_mask
 
-        encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
-        encoder_position_ids = encoder_position_ids.unsqueeze(0)
-        encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
+        if encoder_hidden_states is not None:
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
+            encoder_position_ids = encoder_position_ids.unsqueeze(0)
+            encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
 
         # ==================================================
         # TSRT Decode 
