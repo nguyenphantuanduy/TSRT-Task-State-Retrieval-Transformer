@@ -271,7 +271,7 @@ import torch.nn.functional as F
 def compute_retrieval_scoring_loss(
     usefulness_scores: torch.Tensor,        # (B, L, D), cosine scores [-1,1]
     usefulness_score_matrix: torch.Tensor,  # (B, L, D), {1,0,-1}
-    margin: float = 0.2,
+    margin: float = -0.8,
 ) -> torch.Tensor:
     """
     Cosine similarity retrieval loss.
