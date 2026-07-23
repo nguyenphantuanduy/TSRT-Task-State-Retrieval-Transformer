@@ -739,7 +739,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
                 sample_document_padding_mask = document_padding_mask[sample_idx, :, :]      # (D, L')
 
                 if sample_retrieval_decision >= RETRIEVAL_DECISION_THRESHOLD:
-                    if document_cache is not None: document_cache.reset_kv()
+                    if document_cache is not None: document_cache.reset_all()
                     # (D,)
                     valid_document_mask = sample_document_padding_mask.any(dim=-1)
 
