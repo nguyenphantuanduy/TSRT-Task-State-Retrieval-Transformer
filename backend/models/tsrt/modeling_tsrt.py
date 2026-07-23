@@ -1180,7 +1180,7 @@ class TSRTModel(TSRTPreTrainedModel):
                 document_ids.shape[-1],
             )
             encoder_hidden_states = self.embed_tokens(document_ids)
-            encoder_position_ids = torch.arange(encoder_hidden_states.shape[2], device=encoder_hidden_states.device)
+            encoder_position_ids = torch.arange(encoder_hidden_states.shape[1], device=encoder_hidden_states.device)
             encoder_position_ids = encoder_position_ids.unsqueeze(0)
 
             encoder_position_embeddings = self.rotary_emb(encoder_hidden_states, encoder_position_ids)
