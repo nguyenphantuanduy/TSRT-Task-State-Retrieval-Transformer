@@ -934,7 +934,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
             encoder_hidden_states = torch.stack(batch_encoder_hidden_states, dim=0)
             retrieval_memory = torch.stack(batch_retrieval_memory, dim=0)
             document_padding_mask = torch.stack(batch_document_padding_mask, dim=0)
-            print(document_padding_mask)
+            print(document_padding_mask.shape)
 
             cache.update(
                 chosen_document=encoder_hidden_states,
