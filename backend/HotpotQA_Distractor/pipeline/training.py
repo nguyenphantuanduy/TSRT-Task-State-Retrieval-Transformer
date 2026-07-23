@@ -91,14 +91,11 @@ def train():
 
     training_args = TrainingArguments(
         output_dir="./checkpoint",
-
-        overwrite_output_dir=True,
-
         per_device_train_batch_size=4,
         per_device_eval_batch_size=4,
 
         gradient_accumulation_steps=1,
-
+        save_total_limit=2,
         learning_rate=2e-5,
         weight_decay=0.01,
 
@@ -114,8 +111,6 @@ def train():
 
         save_strategy="steps",
         save_steps=500,
-
-        save_total_limit=2,
 
         load_best_model_at_end=True,
 
