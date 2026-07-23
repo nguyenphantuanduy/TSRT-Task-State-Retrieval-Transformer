@@ -5,30 +5,20 @@ from tqdm import tqdm
 
 from transformers import AutoTokenizer
 
-from HotpotQA_Distractor.data.load_data import load_tsrt_hotpotqa_teacher
-from HotpotQA_Distractor.collator import TSRTDataCollator
+from HotpotQA_Distractor.data.load_data import (
+    load_tsrt_hotpotqa_teacher,
+)
 
 MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
 
 
 def main():
 
-    # =====================================================
-    # DATASET
-    # =====================================================
-
     print("Loading dataset...")
-
     dataset = load_tsrt_hotpotqa_teacher()
-
     train_dataset = dataset["train"]
 
-    # =====================================================
-    # TOKENIZER
-    # =====================================================
-
     print("Loading tokenizer...")
-
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
         trust_remote_code=True,
@@ -37,56 +27,47 @@ def main():
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
 
-    # =====================================================
-    # COLLATOR
-    # =====================================================
-
-    collator = TSRTDataCollator(
-        tokenizer=tokenizer,
-        document_max_length=512,
-    )
-
-    # =====================================================
-    # STATISTICS
-    # =====================================================
-
-    doc_lengths = []
+    document_lengths = []
+    documents_per_sample = []
 
     for sample in tqdm(train_dataset):
 
-        batch = collator([sample])
+        titles = sample["context"]["title"]
+        paragraphs = sample["context"]["sentences"]
 
-        # (1, D, L)
-        document_ids = batch["document_ids"][0]
+        documents_per_sample.append(len(paragraphs))
 
-        # (1, D, L)
-        document_attention_mask = batch["document_attention_mask"][0]
+        for title, sentences in zip(titles, paragraphs):
 
-        num_docs = document_ids.size(0)
+            # giống cách build document của HotpotQA
+            document = title + "\n" + "\n".join(sentences)
 
-        for doc_idx in range(num_docs):
+            token_ids = tokenizer(
+                document,
+                add_special_tokens=False,
+            )["input_ids"]
 
-            length = (
-                document_attention_mask[doc_idx]
-                .sum()
-                .item()
-            )
+            document_lengths.append(len(token_ids))
 
-            # bỏ document padding
-            if length > 0:
-                doc_lengths.append(length)
-
-    doc_lengths = np.array(doc_lengths)
+    document_lengths = np.asarray(document_lengths)
 
     print("=" * 60)
-    print(f"Total documents : {len(doc_lengths)}")
-    print(f"Mean            : {doc_lengths.mean():.2f}")
-    print(f"Std             : {doc_lengths.std():.2f}")
-    print(f"Min             : {doc_lengths.min()}")
-    print(f"Max             : {doc_lengths.max()}")
+    print(f"Total samples         : {len(train_dataset)}")
+    print(f"Total documents       : {len(document_lengths)}")
+    print(f"Docs / sample (mean)  : {np.mean(documents_per_sample):.2f}")
+
+    print()
+
+    print(f"Mean length           : {document_lengths.mean():.2f}")
+    print(f"Std                   : {document_lengths.std():.2f}")
+    print(f"Min                   : {document_lengths.min()}")
+    print(f"Max                   : {document_lengths.max()}")
 
     for p in [50, 75, 90, 95, 99]:
-        print(f"P{p:<2}             : {np.percentile(doc_lengths, p):.0f}")
+        print(
+            f"P{p:<2}                   : "
+            f"{np.percentile(document_lengths, p):.0f}"
+        )
 
 
 if __name__ == "__main__":
