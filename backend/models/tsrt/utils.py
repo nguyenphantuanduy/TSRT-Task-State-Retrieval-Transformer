@@ -122,46 +122,68 @@ def compute_retrieval_decision_loss(
     retrieval_decision_scores: torch.Tensor,   # (B, L), sigmoid scores in [0, 1]
     retrieval_decision_labels: torch.Tensor,   # (B, L), {0, 1, -1}
     num_items_in_batch: int | None = None,
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+) -> tuple[
+    torch.Tensor,  # training loss
+    torch.Tensor,  # logging loss
+    torch.Tensor,  # decision_predict
+    torch.Tensor,  # non_decision_predict
+]:
     """
     Binary cross entropy loss for retrieval decision.
 
     Ignore:
         - label == -1
 
-    Loss:
-        - Computed from logits using BCEWithLogitsLoss.
+    Returns:
+        training_loss:
+            Loss used for backward.
 
-    Logging:
-        - Prediction statistics use sigmoid scores.
+        logging_loss:
+            Mean BCE loss (independent of num_items_in_batch).
+
+        decision_predict:
+            Mean sigmoid score on positive labels.
+
+        non_decision_predict:
+            Mean sigmoid score on negative labels.
     """
 
     valid_mask = retrieval_decision_labels != -1
 
     if not valid_mask.any():
         zero = retrieval_decision_logits.new_zeros(())
-        return zero, zero, zero
+        return zero, zero, zero, zero
 
     logits = retrieval_decision_logits[valid_mask]
     scores = retrieval_decision_scores[valid_mask]
     targets = retrieval_decision_labels[valid_mask].float()
 
-    reduction = "mean" if num_items_in_batch is None else "sum"
+    # --------------------------------------------------------
+    # Logging loss (always mean)
+    # --------------------------------------------------------
 
-    # --------------------------------------------------------
-    # Loss on logits (AMP safe)
-    # --------------------------------------------------------
-    loss = F.binary_cross_entropy_with_logits(
+    logging_loss = F.binary_cross_entropy_with_logits(
         logits,
         targets,
-        reduction=reduction,
+        reduction="mean",
     )
 
-    if num_items_in_batch is not None:
+    # --------------------------------------------------------
+    # Training loss
+    # --------------------------------------------------------
+
+    if num_items_in_batch is None:
+        loss = logging_loss
+    else:
+        loss = F.binary_cross_entropy_with_logits(
+            logits,
+            targets,
+            reduction="sum",
+        )
         loss = loss / num_items_in_batch
 
     # --------------------------------------------------------
-    # Logging statistics (use sigmoid scores)
+    # Logging statistics
     # --------------------------------------------------------
 
     positive_mask = targets == 1
@@ -179,6 +201,7 @@ def compute_retrieval_decision_loss(
 
     return (
         loss,
+        logging_loss,
         decision_predict,
         non_decision_predict,
     )

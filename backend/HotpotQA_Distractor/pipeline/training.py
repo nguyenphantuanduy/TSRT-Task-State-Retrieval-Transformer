@@ -9,7 +9,7 @@ from transformers import (
     EarlyStoppingCallback,
 )
 
-from ..collator import TSRTDataCollator
+from ..collator_old import TSRTDataCollator
 from ..data.load_data import load_tsrt_hotpotqa_teacher
 from models.tsrt.trainer import TSRTTrainer
 from utils.utils import freeze_for_tsrt_training
@@ -82,7 +82,7 @@ def train():
 
     collator = TSRTDataCollator(
         tokenizer=tokenizer,
-        document_max_length=512,
+        document_max_length=384,
     )
 
     # =====================================================
@@ -91,8 +91,8 @@ def train():
 
     training_args = TrainingArguments(
         output_dir="./checkpoint",
-        per_device_train_batch_size=2,
-        per_device_eval_batch_size=2,
+        per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
 
         gradient_accumulation_steps=32,
         save_total_limit=2,

@@ -1382,14 +1382,14 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         if retrieval_decision_labels is not None:
             retrieval_decision_logits = outputs.retrieval_decision_logits
             retrieval_decision_scores = outputs.retrieval_decision
-            retrieval_decision_loss, decision_predict, non_decision_predict = compute_retrieval_decision_loss(
+            retrieval_decision_loss, retrieval_decision_logging_loss, decision_predict, non_decision_predict = compute_retrieval_decision_loss(
                 retrieval_decision_logits=retrieval_decision_logits,
                 retrieval_decision_labels=retrieval_decision_labels,
                 retrieval_decision_scores=retrieval_decision_scores,
                 num_items_in_batch=num_items_in_batch,
             )
             loss = loss + 0.3 * retrieval_decision_loss
-            self.logged_losses["retrieval_decision_loss"] = retrieval_decision_loss.detach()
+            self.logged_losses["retrieval_decision_loss"] = retrieval_decision_logging_loss.detach()
             self.logged_losses["decision_predict"] = decision_predict.detach()
             self.logged_losses["non_decision_predict"] = non_decision_predict.detach()
 
