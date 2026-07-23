@@ -1,6 +1,7 @@
 import torch
 from models.tsrt.modeling_tsrt import TSRTForCausalLM
 
+
 def batch_tokenize_documents(
     samples: list[list[str]],
     tokenizer,
@@ -84,82 +85,6 @@ def batch_tokenize_documents(
         "input_ids": input_ids,
         "attention_mask": attention_mask,
     }
-
-
-
-if __name__ == "__main__":
-    from transformers import AutoTokenizer
-
-    tokenizer = AutoTokenizer.from_pretrained(
-        "Qwen/Qwen3-1.7B",
-        trust_remote_code=True,
-    )
-
-    if tokenizer.pad_token is None:
-        tokenizer.pad_token = tokenizer.eos_token
-
-    samples = [
-        [
-            "Paris is the capital of France.",
-            "France is located in Europe.",
-        ],
-        [
-            "The Moon is Earth's only natural satellite.",
-        ],
-        [
-            "PyTorch is a deep learning framework.",
-            "Transformers are neural network architectures.",
-            "HotpotQA is a multi-hop question answering dataset.",
-        ],
-    ]
-
-    outputs = batch_tokenize_documents(
-        samples=samples,
-        tokenizer=tokenizer,
-        max_length=32,
-    )
-
-    input_ids = outputs["input_ids"]
-    attention_mask = outputs["attention_mask"]
-
-    print("=== Shapes ===")
-    print("input_ids     :", input_ids.shape)
-    print("attention_mask:", attention_mask.shape)
-
-    B, D, L = input_ids.shape
-
-    print("\n=== Batch Info ===")
-    print(f"B = {B}")
-    print(f"D = {D}")
-    print(f"L = {L}")
-
-    print("\n=== Attention Mask ===")
-    print(attention_mask)
-
-    print("\n=== Padded Document Example ===")
-
-    # sample thứ 2 chỉ có 1 doc nên doc thứ 2 và 3 là padding doc
-    print(
-        attention_mask[1]
-    )
-
-    print("\n=== Decode Example ===")
-
-    for d in range(D):
-        text = tokenizer.decode(
-            input_ids[0, d],
-            skip_special_tokens=True,
-        )
-
-        print(f"\nDoc {d}")
-        print(text)
-
-    print("\n=== Doc Mask Derived From Attention Mask ===")
-
-    doc_mask = attention_mask.any(dim=-1)
-
-    print(doc_mask)
-    print("shape:", doc_mask.shape)
 
 def freeze_for_tsrt_training(model: TSRTForCausalLM):
     """

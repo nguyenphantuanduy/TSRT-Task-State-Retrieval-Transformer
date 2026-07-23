@@ -2925,6 +2925,7 @@ def main():
     # ==========================================================
     # TOKENIZE QUESTIONS
     # ==========================================================
+    tokenizer.padding_side = "left"
 
     question_inputs = tokenizer(
         questions,
@@ -2932,6 +2933,7 @@ def main():
         truncation=True,
         max_length=512,
         return_tensors="pt",
+
     )
 
 
@@ -3019,9 +3021,9 @@ def main():
 
             # TSRT retrieval
 
-            retrieve_top_k=3,
+            retrieve_top_k=5,
 
-            usefulness_threshold=0.5,
+            usefulness_threshold=0.7,
         )
 
 

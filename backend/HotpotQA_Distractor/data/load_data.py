@@ -41,6 +41,22 @@ def load_hotpotqa(config="distractor"):
 
     return dataset
 
+from datasets import DatasetDict, load_dataset
+
+
+def load_tsrt_hotpotqa_teacher() -> DatasetDict:
+    """
+    Load TSRT HotpotQA Teacher dataset.
+
+    Returns:
+        DatasetDict with:
+            - train
+            - validation
+    """
+
+    return load_dataset(
+        "nguyenphantuanduy/TSRT-HotpotQA-Teacher"
+    )
 
 def print_sample(sample):
     print("\n" + "=" * 80)
