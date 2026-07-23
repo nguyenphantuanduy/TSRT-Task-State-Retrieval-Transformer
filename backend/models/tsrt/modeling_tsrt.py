@@ -930,7 +930,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
                 batch_document_padding_mask.append(padding_mask)
 
             encoder_hidden_states = torch.stack(batch_encoder_hidden_states, dim=0)
-            retrieval_memory = torch.stack(batch_retrieval_memory, dim=0).unsqueeze(1) 
+            retrieval_memory = torch.stack(batch_retrieval_memory, dim=0)
             document_padding_mask = torch.stack(batch_document_padding_mask, dim=0)
 
             cache.update(
@@ -940,7 +940,7 @@ class TSRTRetrievalMemoryHead(nn.Module):
             )
 
             return TSRTRetrievalMemory(
-                retrieval_memory=retrieval_memory,
+                retrieval_memory=retrieval_memory.unsqueeze(1) ,
                 encoder_hidden_states=encoder_hidden_states,
                 document_padding_mask=document_padding_mask,
             )
@@ -1404,7 +1404,6 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             retrieval_scoring_loss = compute_retrieval_scoring_loss(
                 usefulness_scores=usefulness_score,
                 usefulness_score_matrix=usefulness_score_matrix,
-                num_items_in_batch=num_items_in_batch,
             )
             self.logged_losses["retrieval_scoring_loss"] = retrieval_scoring_loss.detach()
 

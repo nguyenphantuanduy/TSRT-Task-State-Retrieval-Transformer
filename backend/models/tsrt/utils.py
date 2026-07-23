@@ -246,42 +246,68 @@ import torch.nn.functional as F
 
 
 def compute_retrieval_scoring_loss(
-    usefulness_scores: torch.Tensor,        # (B, L, D), [-1,1]
+    usefulness_scores: torch.Tensor,        # (B, L, D), cosine scores [-1,1]
     usefulness_score_matrix: torch.Tensor,  # (B, L, D), {1,0,-1}
-    num_items_in_batch: int | None = None,
+    margin: float = 0.2,
 ) -> torch.Tensor:
     """
-    Binary cross entropy loss for usefulness scores.
+    Cosine similarity retrieval loss.
+
+    Positive documents:
+        Pull cosine similarity closer to 1.
+
+    Negative documents:
+        Push cosine similarity below margin.
 
     Ignore:
         - label == -1
     """
 
-    usefulness_scores = (usefulness_scores + 1.0) / 2.0
+    pos_mask = usefulness_score_matrix == 1
+    neg_mask = usefulness_score_matrix == 0
 
-    valid_mask = usefulness_score_matrix != -1
+    losses = []
 
-    if not valid_mask.any():
+    # --------------------------------------------------------
+    # Positive documents
+    # Maximize cosine similarity
+    #
+    # loss = 1 - cosine
+    # --------------------------------------------------------
+    if pos_mask.any():
+        positive_scores = usefulness_scores[pos_mask]
+
+        positive_loss = 1.0 - positive_scores
+
+        losses.append(
+            positive_loss.mean()
+        )
+
+    # --------------------------------------------------------
+    # Negative documents
+    # Minimize cosine similarity
+    #
+    # loss = max(cosine - margin, 0)
+    # --------------------------------------------------------
+    if neg_mask.any():
+        negative_scores = usefulness_scores[neg_mask]
+
+        negative_loss = F.relu(
+            negative_scores - margin
+        )
+
+        losses.append(
+            negative_loss.mean()
+        )
+
+    # Không có positive hoặc negative hợp lệ
+    if len(losses) == 0:
         return usefulness_scores.new_zeros(())
 
-    scores = usefulness_scores[valid_mask]
-    targets = usefulness_score_matrix[valid_mask].float()
+    return torch.stack(losses).mean()
 
-    reduction = "mean" if num_items_in_batch is None else "sum"
-
-    loss = F.binary_cross_entropy(
-        scores,
-        targets,
-        reduction=reduction,
-    )
-
-    if num_items_in_batch is not None:
-        loss = loss / num_items_in_batch
-
-    return loss
 
 import torch
-
 
 def compute_positive_negative_scores(
     usefulness_scores: torch.Tensor,        # (B, L, D), scores in [-1, 1]
