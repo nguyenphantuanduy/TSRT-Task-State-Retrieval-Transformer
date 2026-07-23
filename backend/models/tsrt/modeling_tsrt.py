@@ -1299,7 +1299,7 @@ class TSRTModel(TSRTPreTrainedModel):
             past_key_values=past_key_values,
             retrieval_decision=retrieval_decision.squeeze(-1),
             usefulness_score=usefulness_score,
-            retrieval_decision_logits=retrieval_decision_logits,
+            retrieval_decision_logits=retrieval_decision_logits.squeeze(-1),
         )
 
 
