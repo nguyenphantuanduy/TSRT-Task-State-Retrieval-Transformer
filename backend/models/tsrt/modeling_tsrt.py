@@ -1137,7 +1137,7 @@ class TSRTModel(TSRTPreTrainedModel):
                 "config": self.config,
                 "inputs_embeds": inputs_embeds,
                 "attention_mask": attention_mask,
-                "past_key_values": past_key_values.decoder_cache,
+                "past_key_values": past_key_values.decoder_cache if past_key_values is not None else None,
                 "position_ids": position_ids,
             }
             # Create the masks
@@ -1157,7 +1157,7 @@ class TSRTModel(TSRTPreTrainedModel):
                 attention_mask=causal_mask_mapping[self.config.layer_types[i]],
                 position_embeddings=decoder_position_embeddings,
                 position_ids=position_ids,
-                past_key_values=past_key_values.decoder_cache,
+                past_key_values=past_key_values.decoder_cache if past_key_values is not None else None,
                 use_cache=use_cache,
                 **kwargs,
             )
@@ -1254,7 +1254,7 @@ class TSRTModel(TSRTPreTrainedModel):
             retrieval_decision=retrieval_decision,
             encoder_hidden_states=encoder_hidden_states,
             document_padding_mask=document_padding_mask,
-            cache=past_key_values.chosen_document_cache,
+            cache=past_key_values.chosen_document_cache if past_key_values is not None else None,
             retrieve_top_k=retrieve_top_k,
             usefulness_threshold=usefulness_threshold,
         )
@@ -1279,8 +1279,8 @@ class TSRTModel(TSRTPreTrainedModel):
                 encoder_position_embeddings=encoder_position_embeddings,
                 self_attention_mask=causal_mask_mapping[self.config.layer_types[i + decoder_offset]],
                 cross_attention_mask=cross_attention_mask,
-                self_attn_past_key_values=past_key_values.decoder_cache,
-                cross_attn_past_key_values=past_key_values.document_cache,
+                self_attn_past_key_values=past_key_values.decoder_cache if past_key_values is not None else None,
+                cross_attn_past_key_values=past_key_values.document_cache if past_key_values is not None else None,
                 use_cache=use_cache,
                 position_ids=position_ids,
                 **kwargs,
