@@ -9,7 +9,7 @@ from transformers import (
     EarlyStoppingCallback,
 )
 
-from ..collator_old import TSRTDataCollator
+from ..collator import TSRTDataCollator
 from ..data.load_data import load_tsrt_hotpotqa_teacher
 from models.tsrt.trainer import TSRTTrainer
 from utils.utils import freeze_for_tsrt_training
@@ -82,7 +82,7 @@ def train():
 
     collator = TSRTDataCollator(
         tokenizer=tokenizer,
-        document_max_length=384,
+        document_max_length=512,
     )
 
     # =====================================================
