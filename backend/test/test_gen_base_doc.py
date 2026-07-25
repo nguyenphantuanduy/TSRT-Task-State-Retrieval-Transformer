@@ -27,11 +27,11 @@ CONTEXT_ENCODER = (
     "facebook/dpr-ctx_encoder-single-nq-base"
 )
 
-NUM_SAMPLES = 5
+NUM_SAMPLES = 10
 
 TOP_K = 5
 
-MAX_NEW_TOKENS = 256
+MAX_NEW_TOKENS = 1024
 
 # ==========================================================
 # MAIN

@@ -15,7 +15,7 @@ from HotpotQA_Distractor.data.load_data import load_tsrt_hotpotqa_teacher
 # MODEL
 # ==========================================================
 
-MODEL_PATH = "./best_model"
+MODEL_PATH = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
 
 
 # ==========================================================
@@ -76,7 +76,7 @@ def main():
     # TEST FIRST N SAMPLES
     # ======================================================
 
-    NUM_SAMPLES = 5
+    NUM_SAMPLES = 10
 
     samples = [
         validation_dataset[i]
@@ -137,7 +137,7 @@ def main():
 
             retrieve_top_k=5,
 
-            usefulness_threshold=0.4,
+            usefulness_threshold=0.5,
 
             use_cache=True,
         )
