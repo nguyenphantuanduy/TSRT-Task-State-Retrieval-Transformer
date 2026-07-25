@@ -1,29 +1,9 @@
 import torch
 import random
 from utils.utils import batch_tokenize_documents
-import spacy
-from spacy.cli import download
 from transformers import PreTrainedTokenizerBase
 
-def load_spacy_model():
-
-    model_name = "en_core_web_sm"
-
-    try:
-        return spacy.load(model_name)
-
-    except OSError:
-
-        print(
-            f"{model_name} not found. Downloading..."
-        )
-
-        download(model_name)
-
-        return spacy.load(model_name)
-
-
-nlp = load_spacy_model()
+from sentence_splitter import split_sentences_with_offsets
 
 
 def build_tsrt_document_batch(
@@ -362,25 +342,6 @@ def build_tsrt_question_answer_batch(
     )
 
     return batch
-
-def split_sentences_with_offsets(text: str):
-    """
-    Split English text into sentences and return their character offsets.
-
-    Returns:
-        List of tuples:
-            (sentence, start_char, end_char)
-    """
-    doc = nlp(text)
-
-    return [
-        (
-            sent.text,
-            sent.start_char,
-            sent.end_char,
-        )
-        for sent in doc.sents
-    ]
 
 def fix_usefulness_score_matrix(
     batch: dict,
