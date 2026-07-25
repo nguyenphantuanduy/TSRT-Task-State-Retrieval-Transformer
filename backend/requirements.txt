@@ -6,3 +6,4 @@ sentencepiece
 datasets
 bitsandbytes
 spacy
+wtpsplit

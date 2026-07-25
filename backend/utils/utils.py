@@ -145,18 +145,18 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
             param.requires_grad = False
 
     # ==========================================================
-    # Unfreeze last 2 decoder FFN
+    # Unfreeze last 4 decoder FFN
     # ==========================================================
 
-    for layer in model.model.decoder_layers[-2:]:
+    for layer in model.model.decoder_layers[-4:]:
         for param in layer.mlp.parameters():
             param.requires_grad = True
 
     # ==========================================================
-    # Unfreeze last 2 encoder FFN
+    # Unfreeze last 4 encoder FFN
     # ==========================================================
 
-    for layer in model.model.encoder_layers[-2:]:
+    for layer in model.model.encoder_layers[-4:]:
         for param in layer.mlp.parameters():
             param.requires_grad = True
 
