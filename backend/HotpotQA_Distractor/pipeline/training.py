@@ -99,7 +99,7 @@ def train():
         learning_rate=2e-5,
         weight_decay=0.01,
 
-        num_train_epochs=0.4,
+        num_train_epochs=0.3,
 
         bf16=True,
 
