@@ -2746,311 +2746,342 @@ test emb cache
 # print(type(TSRTForCausalLM.config_class))
 
 
-import torch
-from transformers import AutoTokenizer, AutoModelForCausalLM
+# import torch
+# from transformers import AutoTokenizer, AutoModelForCausalLM
 
 
-MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+# MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
 
 
-def batch_tokenize_documents(
-    samples: list[list[str]],
-    tokenizer,
-    max_length: int,
-):
-    """
-    Args:
-        samples:
-            [
-                [doc1, doc2],
-                [doc3],
-                [doc4, doc5, doc6]
-            ]
+# def batch_tokenize_documents(
+#     samples: list[list[str]],
+#     tokenizer,
+#     max_length: int,
+# ):
+#     """
+#     Args:
+#         samples:
+#             [
+#                 [doc1, doc2],
+#                 [doc3],
+#                 [doc4, doc5, doc6]
+#             ]
 
-    Returns:
-        input_ids:
-            (B, D, L)
+#     Returns:
+#         input_ids:
+#             (B, D, L)
 
-        attention_mask:
-            (B, D, L)
-    """
+#         attention_mask:
+#             (B, D, L)
+#     """
 
-    batch_size = len(samples)
+#     batch_size = len(samples)
 
-    # =====================
-    # PAD DOCUMENT NUMBER
-    # =====================
+#     # =====================
+#     # PAD DOCUMENT NUMBER
+#     # =====================
 
-    max_docs = max(
-        len(sample)
-        for sample in samples
-    )
+#     max_docs = max(
+#         len(sample)
+#         for sample in samples
+#     )
 
-    padded_docs = []
+#     padded_docs = []
 
-    for sample in samples:
-        padded_docs.append(
-            sample
-            + [""] * (max_docs - len(sample))
-        )
+#     for sample in samples:
+#         padded_docs.append(
+#             sample
+#             + [""] * (max_docs - len(sample))
+#         )
 
 
-    # =====================
-    # FLATTEN
-    # =====================
+#     # =====================
+#     # FLATTEN
+#     # =====================
 
-    flat_docs = [
-        doc
-        for sample in padded_docs
-        for doc in sample
-    ]
+#     flat_docs = [
+#         doc
+#         for sample in padded_docs
+#         for doc in sample
+#     ]
 
 
-    # =====================
-    # TOKENIZE
-    # =====================
+#     # =====================
+#     # TOKENIZE
+#     # =====================
 
-    encoded = tokenizer(
-        flat_docs,
-        padding=True,
-        truncation=True,
-        max_length=max_length,
-        return_tensors="pt",
-    )
+#     encoded = tokenizer(
+#         flat_docs,
+#         padding=True,
+#         truncation=True,
+#         max_length=max_length,
+#         return_tensors="pt",
+#     )
 
 
-    input_ids = encoded["input_ids"]
-    attention_mask = encoded["attention_mask"]
+#     input_ids = encoded["input_ids"]
+#     attention_mask = encoded["attention_mask"]
 
 
-    seq_len = input_ids.shape[-1]
+#     seq_len = input_ids.shape[-1]
 
 
-    # =====================
-    # RESTORE B,D,L
-    # =====================
+#     # =====================
+#     # RESTORE B,D,L
+#     # =====================
 
-    input_ids = input_ids.view(
-        batch_size,
-        max_docs,
-        seq_len,
-    )
+#     input_ids = input_ids.view(
+#         batch_size,
+#         max_docs,
+#         seq_len,
+#     )
 
-    attention_mask = attention_mask.view(
-        batch_size,
-        max_docs,
-        seq_len,
-    )
+#     attention_mask = attention_mask.view(
+#         batch_size,
+#         max_docs,
+#         seq_len,
+#     )
 
 
-    return {
-        "input_ids": input_ids,
-        "attention_mask": attention_mask,
-    }
+#     return {
+#         "input_ids": input_ids,
+#         "attention_mask": attention_mask,
+#     }
 
 
 
-def main():
+# def main():
 
-    device = "cuda"
+#     device = "cuda"
 
 
-    print("Loading tokenizer...")
+#     print("Loading tokenizer...")
 
-    tokenizer = AutoTokenizer.from_pretrained(
-        MODEL_NAME,
-        trust_remote_code=True,
-    )
+#     tokenizer = AutoTokenizer.from_pretrained(
+#         MODEL_NAME,
+#         trust_remote_code=True,
+#     )
 
 
-    print("Loading model...")
+#     print("Loading model...")
 
-    model = AutoModelForCausalLM.from_pretrained(
-        MODEL_NAME,
-        trust_remote_code=True,
-        dtype=torch.bfloat16,
-        device_map=device,
-    )
+#     model = AutoModelForCausalLM.from_pretrained(
+#         MODEL_NAME,
+#         trust_remote_code=True,
+#         dtype=torch.bfloat16,
+#         device_map=device,
+#     )
 
-    model.eval()
+#     model.eval()
 
 
-    # ==========================================================
-    # BATCH QUESTIONS
-    # ==========================================================
+#     # ==========================================================
+#     # BATCH QUESTIONS
+#     # ==========================================================
 
-    questions = [
-        "Who was the first president of the United States?",
-        "Who was the 16th president of the United States?",
-    ]
+#     questions = [
+#         "Who was the first president of the United States?",
+#         "Who was the 16th president of the United States?",
+#     ]
 
 
-    # ==========================================================
-    # DOCUMENTS PER SAMPLE
-    # ==========================================================
+#     # ==========================================================
+#     # DOCUMENTS PER SAMPLE
+#     # ==========================================================
 
-    documents = [
+#     documents = [
 
-        [
-            """
-            George Washington was an American military officer and
-            politician who served as the first president of the United States
-            from 1789 to 1797.
-            """,
+#         [
+#             """
+#             George Washington was an American military officer and
+#             politician who served as the first president of the United States
+#             from 1789 to 1797.
+#             """,
 
-            """
-            Abraham Lincoln was the 16th president of the United States.
-            """,
+#             """
+#             Abraham Lincoln was the 16th president of the United States.
+#             """,
 
-            """
-            Thomas Jefferson was the third president of the United States.
-            """,
-        ],
+#             """
+#             Thomas Jefferson was the third president of the United States.
+#             """,
+#         ],
 
 
-        [
-            """
-            Abraham Lincoln was the 16th president of the United States.
-            He served from 1861 to 1865.
-            """,
+#         [
+#             """
+#             Abraham Lincoln was the 16th president of the United States.
+#             He served from 1861 to 1865.
+#             """,
 
-            """
-            George Washington was the first president of the United States.
-            """,
-        ]
+#             """
+#             George Washington was the first president of the United States.
+#             """,
+#         ]
 
-    ]
+#     ]
 
 
-    # ==========================================================
-    # TOKENIZE QUESTIONS
-    # ==========================================================
-    tokenizer.padding_side = "left"
+#     # ==========================================================
+#     # TOKENIZE QUESTIONS
+#     # ==========================================================
+#     tokenizer.padding_side = "left"
 
-    question_inputs = tokenizer(
-        questions,
-        padding=True,
-        truncation=True,
-        max_length=512,
-        return_tensors="pt",
+#     question_inputs = tokenizer(
+#         questions,
+#         padding=True,
+#         truncation=True,
+#         max_length=512,
+#         return_tensors="pt",
 
-    )
+#     )
 
 
-    input_ids = question_inputs.input_ids.to(device)
+#     input_ids = question_inputs.input_ids.to(device)
 
-    attention_mask = (
-        question_inputs.attention_mask
-        .to(device)
-    )
+#     attention_mask = (
+#         question_inputs.attention_mask
+#         .to(device)
+#     )
 
 
-    # ==========================================================
-    # TOKENIZE DOCUMENTS
-    # ==========================================================
+#     # ==========================================================
+#     # TOKENIZE DOCUMENTS
+#     # ==========================================================
 
-    document_inputs = batch_tokenize_documents(
-        samples=documents,
-        tokenizer=tokenizer,
-        max_length=512,
-    )
+#     document_inputs = batch_tokenize_documents(
+#         samples=documents,
+#         tokenizer=tokenizer,
+#         max_length=512,
+#     )
 
 
-    document_ids = (
-        document_inputs["input_ids"]
-        .to(device)
-    )
+#     document_ids = (
+#         document_inputs["input_ids"]
+#         .to(device)
+#     )
 
 
-    document_padding_mask = (
-        document_inputs["attention_mask"]
-        .to(device)
-    )
+#     document_padding_mask = (
+#         document_inputs["attention_mask"]
+#         .to(device)
+#     )
 
 
-    print(
-        "input_ids:",
-        input_ids.shape
-    )
+#     print(
+#         "input_ids:",
+#         input_ids.shape
+#     )
 
-    print(
-        "document_ids:",
-        document_ids.shape
-    )
+#     print(
+#         "document_ids:",
+#         document_ids.shape
+#     )
 
 
-    # ==========================================================
-    # GENERATE
-    # ==========================================================
+#     # ==========================================================
+#     # GENERATE
+#     # ==========================================================
 
-    with torch.no_grad():
+#     with torch.no_grad():
 
-        outputs = model.generate(
+#         outputs = model.generate(
 
-            # (B,L)
-            input_ids=input_ids,
+#             # (B,L)
+#             input_ids=input_ids,
 
-            attention_mask=attention_mask,
+#             attention_mask=attention_mask,
 
 
-            # TSRT INPUTS
-            # (B,D,L_doc)
+#             # TSRT INPUTS
+#             # (B,D,L_doc)
 
-            document_ids=document_ids,
+#             document_ids=document_ids,
 
-            document_padding_mask=document_padding_mask,
+#             document_padding_mask=document_padding_mask,
 
 
-            # generation
+#             # generation
 
-            max_new_tokens=128,
+#             max_new_tokens=128,
 
-            do_sample=False,
+#             do_sample=False,
 
-            eos_token_id=tokenizer.eos_token_id,
+#             eos_token_id=tokenizer.eos_token_id,
 
-            pad_token_id=(
-                tokenizer.pad_token_id
-                if tokenizer.pad_token_id is not None
-                else tokenizer.eos_token_id
-            ),
+#             pad_token_id=(
+#                 tokenizer.pad_token_id
+#                 if tokenizer.pad_token_id is not None
+#                 else tokenizer.eos_token_id
+#             ),
 
 
-            use_cache=True,
+#             use_cache=True,
 
 
-            # TSRT retrieval
+#             # TSRT retrieval
 
-            retrieve_top_k=5,
+#             retrieve_top_k=5,
 
-            usefulness_threshold=0.7,
-        )
+#             usefulness_threshold=0.7,
+#         )
 
 
-    # ==========================================================
-    # DECODE BATCH
-    # ==========================================================
+#     # ==========================================================
+#     # DECODE BATCH
+#     # ==========================================================
 
 
-    print("=" * 60)
+#     print("=" * 60)
 
 
-    for idx, output in enumerate(outputs):
+#     for idx, output in enumerate(outputs):
 
-        text = tokenizer.decode(
-            output,
-            skip_special_tokens=True,
-        )
+#         text = tokenizer.decode(
+#             output,
+#             skip_special_tokens=True,
+#         )
 
-        print(
-            f"[Sample {idx}]"
-        )
+#         print(
+#             f"[Sample {idx}]"
+#         )
 
-        print(text)
+#         print(text)
 
-        print("-" * 60)
+#         print("-" * 60)
 
 
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()
+
+
+from transformers import AutoTokenizer
+
+MODEL_NAME = "Qwen/Qwen3-1.7B"
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+
+text = "Hello, how are you?"
+
+encoding = tokenizer(text)
+
+input_ids = encoding["input_ids"]
+
+print("=" * 60)
+print("EOS token      :", repr(tokenizer.eos_token))
+print("EOS token id   :", tokenizer.eos_token_id)
+print("PAD token      :", repr(tokenizer.pad_token))
+print("PAD token id   :", tokenizer.pad_token_id)
+print("=" * 60)
+
+print("Input IDs:")
+print(input_ids)
+
+print("=" * 60)
+print("Last token id  :", input_ids[-1])
+print("Is EOS?        :", input_ids[-1] == tokenizer.eos_token_id)
+
+print("=" * 60)
+print("Decoded:")
+print(tokenizer.decode(input_ids))

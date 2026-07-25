@@ -70,6 +70,7 @@ from .modeling_outputs import TSRTModelOutputWithPast
 from transformers.generation import GenerationMixin
 
 RETRIEVAL_DECISION_THRESHOLD = 0.7
+LOSS_ACCUMULATION_STEPS = 32
 
 @use_kernel_func_from_hub("rotary_pos_emb")
 def apply_rotary_pos_emb_query(
@@ -1325,6 +1326,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             "negative_score": None,
             "decision_predict": None,
             "non_decision_predict": None,
+            "answer_loss": None,
         }
         # Initialize weights and apply final processing
         self.post_init()
@@ -1347,8 +1349,12 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
         logits_to_keep: int | torch.Tensor = 0,
         retrieve_top_k: int | None = None,
         usefulness_threshold: float | None = None,
+        answer_position: torch.Tensor | None = None,
+        loss_accumulation_steps: int | None = None,
         **kwargs: Unpack[TransformersKwargs],
     ) -> CausalLMOutputWithPast:
+        loss_accumulation_steps = LOSS_ACCUMULATION_STEPS if loss_accumulation_steps is None else loss_accumulation_steps
+        
         outputs: TSRTModelOutputWithPast = self.model(
             input_ids=input_ids,
             document_ids=document_ids,
@@ -1368,6 +1374,9 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
             "num_items_in_batch",
             None,
         )
+        logging_kwargs = dict(kwargs)
+        logging_kwargs.pop("num_items_in_batch", None)
+        
         hidden_states = outputs.last_hidden_state
         # Only compute necessary logits, and do not upcast them to float if we are not computing the loss
         slice_indices = slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) else logits_to_keep
@@ -1379,8 +1388,47 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
         if labels is not None:
             lm_loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
-            loss = lm_loss
-            self.logged_losses["lm_loss"] = lm_loss.detach()
+            loss = 0.5 * lm_loss
+
+            lm_loss_for_logging = self.loss_function(
+                logits=logits,
+                labels=labels,
+                vocab_size=self.config.vocab_size,
+                **logging_kwargs,
+            )
+            self.logged_losses["lm_loss"] = lm_loss_for_logging.detach()
+
+        if (
+            labels is not None
+            and answer_position is not None
+        ):
+            answer_labels = labels.clone()
+            L = answer_labels.size(1)
+            positions = torch.arange(
+                L,
+                device=labels.device,
+            ).unsqueeze(0)          # (1, L)
+            answer_pos = answer_position.unsqueeze(1)   # (B, 1)
+            # True tại các vị trí cần mask
+            mask = positions < answer_pos               # (B, L)
+            answer_labels[mask] = -100
+            # Sample nào không có answer
+            answer_labels[answer_position < 0] = -100
+            
+            answer_loss = self.loss_function(
+                logits=logits,
+                labels=answer_labels,
+                vocab_size=self.config.vocab_size,
+                **logging_kwargs,
+            )
+            answer_loss_for_logging = answer_loss.detach()
+
+            answer_loss = (
+                answer_loss
+                / loss_accumulation_steps
+            )
+            loss = loss + answer_loss
+            self.logged_losses["answer_loss"] = answer_loss_for_logging
         
         if retrieval_decision_labels is not None:
             retrieval_decision_logits = outputs.retrieval_decision_logits
@@ -1412,7 +1460,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
             loss = (
                 loss
-                + 0.6 * (retrieval_ranking_loss / 32)
+                + 0.6 * (retrieval_ranking_loss / loss_accumulation_steps)
                 # + 0.3 * (retrieval_scoring_loss / 32)
             )
 

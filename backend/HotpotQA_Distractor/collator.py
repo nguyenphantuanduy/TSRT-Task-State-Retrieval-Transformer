@@ -180,6 +180,7 @@ def build_tsrt_question_answer_batch(
         question_mask:              (B, L)
         labels:                     (B, L)
         retrieval_decision_labels:  (B, L)
+        answer_position             (B,)
 
     question_mask:
         0 -> question tokens (except last question token)
@@ -204,7 +205,7 @@ def build_tsrt_question_answer_batch(
     batch_question_mask = []
     batch_labels = []
     batch_retrieval_labels = []
-
+    batch_answer_position = []
     max_length = 0
 
     for sample in samples:
@@ -230,6 +231,27 @@ def build_tsrt_question_answer_batch(
             answer_text,
             add_special_tokens=False,
         )["input_ids"]
+
+        answer_ids.append(tokenizer.eos_token_id)
+
+        marker = "Answer:\n"
+        answer_start = answer_text.rfind(marker)
+
+        answer_position = -1
+        if answer_start != -1:
+            answer_start += len(marker)
+            
+            before_answer_ids = tokenizer(
+                answer_text[:answer_start],
+                add_special_tokens=False,
+            )["input_ids"]
+
+            answer_position = (
+                len(question_ids)
+                + len(before_answer_ids)
+            )
+
+        batch_answer_position.append(answer_position)
 
         # -------------------------------------------------
         # Full sequence
@@ -271,9 +293,9 @@ def build_tsrt_question_answer_batch(
         # last token of every sentence in answer
         answer_offset = len(question_ids)
 
-        for sentence, start_char, end_char in split_sentences_with_offsets(
-            answer_text
-        ):
+        sentences = split_sentences_with_offsets(answer_text)
+
+        for sentence, start_char, end_char in sentences[:-1]:
             # tokenize prefix up to sentence end
             prefix_ids = tokenizer(
                 answer_text[:end_char],
@@ -356,6 +378,10 @@ def build_tsrt_question_answer_batch(
             ),
             "retrieval_decision_labels": torch.tensor(
                 batch_retrieval_labels,
+                dtype=torch.long,
+            ),
+            "answer_position": torch.tensor(
+                batch_answer_position,
                 dtype=torch.long,
             ),
         }

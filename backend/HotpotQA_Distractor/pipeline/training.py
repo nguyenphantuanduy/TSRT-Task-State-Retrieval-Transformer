@@ -74,7 +74,7 @@ def train():
 
     print("Freezing model...")
 
-    freeze_for_tsrt_training(model)
+    model = freeze_for_tsrt_training(model)
 
     # =====================================================
     # COLLATOR

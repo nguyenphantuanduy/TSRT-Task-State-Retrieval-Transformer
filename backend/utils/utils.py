@@ -96,9 +96,12 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
         - LM head
         - All decoder layers
         - FFN (MLP) of encoder layers
+    3. Unfreeze last 2 FFN of encoder and decoder.
 
     Remaining trainable:
         - Encoder self-attention
+        - Last 2 encoder FFN
+        - Last 2 decoder FFN
         - Entire TSRT layers
         - Retrieval heads
         - Final norm
@@ -140,5 +143,21 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
     for layer in model.model.encoder_layers:
         for param in layer.mlp.parameters():
             param.requires_grad = False
+
+    # ==========================================================
+    # Unfreeze last 2 decoder FFN
+    # ==========================================================
+
+    for layer in model.model.decoder_layers[-2:]:
+        for param in layer.mlp.parameters():
+            param.requires_grad = True
+
+    # ==========================================================
+    # Unfreeze last 2 encoder FFN
+    # ==========================================================
+
+    for layer in model.model.encoder_layers[-2:]:
+        for param in layer.mlp.parameters():
+            param.requires_grad = True
 
     return model
