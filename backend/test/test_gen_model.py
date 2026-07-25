@@ -127,7 +127,7 @@ def main():
 
             document_padding_mask=document_padding_mask,
 
-            max_new_tokens=256,
+            max_new_tokens=1024,
 
             do_sample=False,
 
