@@ -3,7 +3,7 @@ import random
 from utils.utils import batch_tokenize_documents
 from transformers import PreTrainedTokenizerBase
 
-from sentence_splitter import split_sentences_with_offsets
+from HotpotQA_Distractor.sentence_splitter import split_sentences_with_offsets
 
 
 def build_tsrt_document_batch(
