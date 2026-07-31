@@ -208,8 +208,7 @@ def tsrt_eager_attention_forward(
     Lk = total_kv_len // D
 
     retrieval_bias = (
-        1
-        + torch.log(
+        torch.log(
             torch.clamp(
                 (retrieval_memory + 1) / 2,
                 min=1e-6,
@@ -995,9 +994,11 @@ class TSRTLayer(GradientCheckpointingLayer):
         residual = decoder_hidden_states
         decoder_hidden_states = self.post_self_attention_layernorm(decoder_hidden_states)
 
+        cross_attn_stats = None
+
         if encoder_hidden_states is not None: 
             # Cross Attention
-            decoder_hidden_states, _ = self.cross_attn(
+            cross_output, _ = self.cross_attn(
                 decoder_hidden_states=decoder_hidden_states,
                 encoder_hidden_states=encoder_hidden_states,
                 retrieval_memory=retrieval_memory,
@@ -1009,10 +1010,16 @@ class TSRTLayer(GradientCheckpointingLayer):
                 position_ids=position_ids,
                 **kwargs,
             )
+        
+            with torch.no_grad():
+                cross_norm = cross_output.norm(dim=-1).mean()
+                residual_norm = residual.norm(dim=-1).mean()
+                cross_attn_stats = {
+                    "cross_norm": cross_norm,
+                    "cross_ratio": (cross_norm / (residual_norm + 1e-8)),
+                }
 
-            decoder_hidden_states = residual + decoder_hidden_states
-
-            
+            decoder_hidden_states = residual + cross_output
             residual = decoder_hidden_states
             decoder_hidden_states = self.post_cross_attention_layernorm(decoder_hidden_states)
 
@@ -1020,7 +1027,7 @@ class TSRTLayer(GradientCheckpointingLayer):
         decoder_hidden_states = self.mlp(decoder_hidden_states)
         decoder_hidden_states = residual + decoder_hidden_states
 
-        return decoder_hidden_states
+        return decoder_hidden_states, cross_attn_stats
 
 
 class TSRTPreTrainedModel(PreTrainedModel):
@@ -1280,8 +1287,10 @@ class TSRTModel(TSRTPreTrainedModel):
         decoder_offset = self.config.num_decoder_layers
         cross_attention_mask = prepare_cross_attention_mask(document_padding_mask_after_retrieval) if document_padding_mask_after_retrieval is not None else None
 
+        all_cross_stats = {}
+
         for i, tsrt_layer in enumerate(self.tsrt_layers[: self.config.num_tsrt_layers]):
-            tsrt_hidden_states = tsrt_layer(
+            tsrt_hidden_states, stats = tsrt_layer(
                 decoder_hidden_states=tsrt_hidden_states,
                 encoder_hidden_states=encoder_hidden_states,
                 retrieval_memory=retrieval_memory,
@@ -1295,6 +1304,8 @@ class TSRTModel(TSRTPreTrainedModel):
                 position_ids=position_ids,
                 **kwargs,
             )
+
+            if stats is not None: all_cross_stats[f"layer_{i}"] = stats
         
         tsrt_hidden_states = self.norm(tsrt_hidden_states)
 
@@ -1304,6 +1315,7 @@ class TSRTModel(TSRTPreTrainedModel):
             retrieval_decision=retrieval_decision.squeeze(-1),
             usefulness_score=usefulness_score,
             retrieval_decision_logits=retrieval_decision_logits.squeeze(-1),
+            all_cross_stats=all_cross_stats,
         )
 
 
@@ -1471,6 +1483,13 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
             self.logged_losses["positive_score"] = positive_score.detach()
             self.logged_losses["negative_score"] = negative_score.detach()
+
+        if outputs.all_cross_stats is not None:
+            for layer_name, layer_stats in outputs.all_cross_stats.items():
+                for stat_name, value in layer_stats.items():
+                    self.logged_losses[
+                        f"cross_attention/{layer_name}/{stat_name}"
+                    ] = value.detach()
 
         return CausalLMOutputWithPast(
             loss=loss,
