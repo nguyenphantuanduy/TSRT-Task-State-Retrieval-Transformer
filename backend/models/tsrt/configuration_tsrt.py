@@ -45,7 +45,7 @@ class TSRTConfig(Qwen3Config):
     num_decoder_layers: int = 14
     num_encoder_layers: int = 14
     num_tsrt_layers: int = 14
-
+    retrieval_bias_gamma: float = 4
     retrieval_embedding_size: int = 1024
 
 

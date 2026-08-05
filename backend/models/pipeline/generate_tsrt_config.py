@@ -34,9 +34,12 @@ with open(config_path, "r", encoding="utf-8") as f:
 config["num_hidden_layers"] = 42
 
 config["num_encoder_layers"] = 14
-config["num_decoder_layers"] = 14
-config["num_tsrt_layers"] = 14
+config["num_decoder_layers"] = 7
+config["num_tsrt_layers"] = 21
 config["retrieval_embedding_size"] = 1024
+
+# Retrieval bias
+config["retrieval_bias_gamma"] = 4.0
 
 # Custom model metadata
 config["model_type"] = "tsrt"

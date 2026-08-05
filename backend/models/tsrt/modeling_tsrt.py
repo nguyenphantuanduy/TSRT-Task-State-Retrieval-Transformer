@@ -169,6 +169,7 @@ def tsrt_eager_attention_forward(
     retrieval_memory: torch.Tensor,
     attention_mask: torch.Tensor | None,
     scaling: float,
+    retrieval_bias_gamma: float,
     dropout: float = 0.0,
     **kwargs: Unpack[TransformersKwargs],
 ):
@@ -208,7 +209,8 @@ def tsrt_eager_attention_forward(
     Lk = total_kv_len // D
 
     retrieval_bias = (
-        torch.log(
+        retrieval_bias_gamma
+        * torch.log(
             torch.clamp(
                 (retrieval_memory + 1) / 2,
                 min=1e-6,
@@ -278,6 +280,7 @@ class TSRTCrossAttention(nn.Module):
         self.num_key_value_groups = config.num_attention_heads // config.num_key_value_heads
         self.scaling = self.head_dim**-0.5
         self.attention_dropout = config.attention_dropout
+        self.retrieval_bias_gamma = config.retrieval_bias_gamma
 
         self.q_proj = nn.Linear(
             config.hidden_size, config.num_attention_heads * self.head_dim, bias=config.attention_bias
@@ -410,6 +413,7 @@ class TSRTCrossAttention(nn.Module):
             attention_mask,
             dropout=0.0 if not self.training else self.attention_dropout,
             scaling=self.scaling,
+            retrieval_bias_gamma=self.retrieval_bias_gamma,
             **kwargs,
         )
 
@@ -1120,7 +1124,7 @@ class TSRTModel(TSRTPreTrainedModel):
         if inputs_embeds is None:
             inputs_embeds = self.embed_tokens(input_ids)
 
-        use_question_mask = not use_cache or past_key_values is None
+        use_question_mask = not use_cache or past_key_values is None or not isinstance(past_key_values, TSRTCache)
 
         if (
             use_cache
@@ -1451,7 +1455,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
                 retrieval_decision_scores=retrieval_decision_scores,
                 num_items_in_batch=num_items_in_batch,
             )
-            loss = loss + 0.3 * retrieval_decision_loss
+            loss = loss + 0.1 * retrieval_decision_loss
             self.logged_losses["retrieval_decision_loss"] = retrieval_decision_logging_loss.detach()
             self.logged_losses["decision_predict"] = decision_predict.detach()
             self.logged_losses["non_decision_predict"] = non_decision_predict.detach()

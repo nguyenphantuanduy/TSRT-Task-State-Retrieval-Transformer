@@ -6,7 +6,9 @@ from models.tsrt.configuration_tsrt import TSRTConfig
 
 
 QWEN_MODEL = "Qwen/Qwen3-1.7B"
-
+NUM_DECODER = 7
+NUM_ENCODER = 14
+NUM_TSRT = 21
 
 def copy_module_state(
     src,
@@ -158,12 +160,12 @@ def build_tsrt_from_qwen():
 
 
     # ==========================================
-    # Decoder 0-13
+    # Decoder 0-6
     # ==========================================
 
     print("Copy decoder layers")
 
-    for i in range(14):
+    for i in range(NUM_DECODER):
 
         print(
             f"decoder layer {i}"
@@ -181,7 +183,7 @@ def build_tsrt_from_qwen():
 
     print("Copy encoder layers")
 
-    for i in range(14):
+    for i in range(NUM_ENCODER):
 
         print(
             f"encoder layer {i}"
@@ -195,7 +197,7 @@ def build_tsrt_from_qwen():
     # ==========================================
     # TSRT layers
     #
-    # Qwen layer 14-27
+    # Qwen layer 7-27
     #
     # TSRT:
     #
@@ -219,14 +221,14 @@ def build_tsrt_from_qwen():
     print("Copy TSRT layers")
 
 
-    for i in range(14):
+    for i in range(NUM_TSRT):
 
         print(
             f"tsrt layer {i}"
         )
 
         qwen_layer = qwen.model.layers[
-            i + 14
+            i + NUM_DECODER
         ]
 
         tsrt_layer = tsrt.model.tsrt_layers[
