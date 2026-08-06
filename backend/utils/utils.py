@@ -129,35 +129,35 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
         param.requires_grad = False
 
     # ==========================================================
-    # Freeze decoder
+    # Freeze entire encoder
     # ==========================================================
 
-    for layer in model.model.decoder_layers:
+    for layer in model.model.encoder_layers:
         for param in layer.parameters():
             param.requires_grad = False
 
     # ==========================================================
-    # Freeze encoder FFN only
+    # Unfreeze last 2 decoder layers
     # ==========================================================
 
-    for layer in model.model.encoder_layers:
-        for param in layer.mlp.parameters():
-            param.requires_grad = False
-
-    # ==========================================================
-    # Unfreeze last 4 decoder FFN
-    # ==========================================================
-
-    for layer in model.model.decoder_layers[-4:]:
-        for param in layer.mlp.parameters():
+    for layer in model.model.decoder_layers[-2:]:
+        for param in layer.parameters():
             param.requires_grad = True
 
     # ==========================================================
-    # Unfreeze last 4 encoder FFN
+    # Unfreeze last 2 encoder layers
     # ==========================================================
 
-    for layer in model.model.encoder_layers[-4:]:
-        for param in layer.mlp.parameters():
+    for layer in model.model.encoder_layers[-2:]:
+        for param in layer.parameters():
             param.requires_grad = True
+
+    # Print statistics
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    
+    print(f"Trainable params: {trainable_params:,}")
+    print(f"Total params:     {total_params:,}")
+    print(f"Trainable ratio:  {100 * trainable_params / total_params:.2f}%")
 
     return model

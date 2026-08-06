@@ -15,7 +15,7 @@ from HotpotQA_Distractor.data.load_data import load_tsrt_hotpotqa_teacher
 # MODEL
 # ==========================================================
 
-MODEL_PATH = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+MODEL_PATH = "./best_model"
 
 
 # ==========================================================

@@ -1404,7 +1404,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
         if labels is not None:
             lm_loss = self.loss_function(logits=logits, labels=labels, vocab_size=self.config.vocab_size, **kwargs)
-            loss = 0.5 * lm_loss
+            loss = lm_loss
 
             lm_loss_for_logging = self.loss_function(
                 logits=logits,
@@ -1455,7 +1455,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
                 retrieval_decision_scores=retrieval_decision_scores,
                 num_items_in_batch=num_items_in_batch,
             )
-            loss = loss + 0.1 * retrieval_decision_loss
+            loss = loss + 0.05 * retrieval_decision_loss
             self.logged_losses["retrieval_decision_loss"] = retrieval_decision_logging_loss.detach()
             self.logged_losses["decision_predict"] = decision_predict.detach()
             self.logged_losses["non_decision_predict"] = non_decision_predict.detach()
@@ -1476,7 +1476,7 @@ class TSRTForCausalLM(TSRTPreTrainedModel, GenerationMixin):
 
             loss = (
                 loss
-                + 0.6 * (retrieval_ranking_loss / loss_accumulation_steps)
+                + 0.0 * (retrieval_ranking_loss / loss_accumulation_steps)
                 # + 0.3 * (retrieval_scoring_loss / 32)
             )
 
