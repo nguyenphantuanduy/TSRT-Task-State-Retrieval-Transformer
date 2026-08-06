@@ -1,7 +1,7 @@
 import torch
 
 from models.tsrt.modeling_tsrt import TSRTRetrievalMemoryHead
-from models.tsrt.cache_utils import TSRTChosenDocumentCache
+from models.tsrt.cache_utils import TSRTChosenDocumentCache, TSRTDocumentCache
 
 torch.manual_seed(42)
 
@@ -69,7 +69,8 @@ def test_first_retrieval():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     print(output.encoder_hidden_states.shape)
@@ -108,7 +109,8 @@ def test_no_retrieval_without_cache():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     print(output.encoder_hidden_states)
@@ -141,7 +143,8 @@ def test_reuse_cache():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     retrieval_decision.zero_()
@@ -152,7 +155,8 @@ def test_reuse_cache():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     print(torch.equal(
@@ -196,7 +200,8 @@ def test_overwrite_cache():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     usefulness_score = torch.rand_like(usefulness_score)
@@ -211,7 +216,8 @@ def test_overwrite_cache():
         encoder_hidden_states,
         document_padding_mask,
         cache=cache,
-        top_k=2,
+        document_cache=TSRTDocumentCache(),
+        retrieve_top_k=2,
     )
 
     print("Cache updated?")
