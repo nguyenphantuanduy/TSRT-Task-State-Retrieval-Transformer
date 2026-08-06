@@ -1,0 +1,38 @@
+services:
+  tsrt-gpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.gpu
+    image: tsrt:gpu
+    container_name: tsrt-app-gpu
+    volumes:
+      - .:/app
+    profiles:
+      - gpu
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/backend
+    command: tail -f /dev/null
+
+  tsrt-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    image: tsrt:cpu
+    container_name: tsrt-app-cpu
+    volumes:
+      - .:/app
+    profiles:
+      - cpu
+    environment:
+      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=/app/backend
+    command: tail -f /dev/null

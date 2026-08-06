@@ -1,7 +1,10 @@
 from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Unpack
+try:
+    from typing import Unpack
+except ImportError:
+    from typing_extensions import Unpack
 import torch
 import torch.nn as nn
 from transformers import Cache

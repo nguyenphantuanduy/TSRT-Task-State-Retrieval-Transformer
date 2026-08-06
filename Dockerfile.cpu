@@ -1,0 +1,25 @@
+FROM python:3.13-slim
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    wget \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements file first to leverage Docker cache
+COPY backend/requirements.txt .
+
+# Install CPU version of PyTorch first to save space, and then install other dependencies
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+RUN grep -v '^torch$' requirements.txt > req_no_torch.txt && pip install --no-cache-dir -r req_no_torch.txt
+
+# Download Spacy model
+RUN python -m spacy download en_core_web_sm
+
+# Set default command for development
+CMD ["tail", "-f", "/dev/null"]
