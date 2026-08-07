@@ -6,7 +6,7 @@ from models.tsrt.modeling_tsrt import TSRTForCausalLM
 
 
 QWEN_MODEL = "Qwen/Qwen3-1.7B"
-TSRT_PATH = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+TSRT_PATH = "tsrt-lab/TSRT-Qwen3-1.7B"
 
 
 def compare_state_dict(
