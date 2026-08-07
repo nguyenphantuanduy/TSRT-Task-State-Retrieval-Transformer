@@ -15,7 +15,7 @@ from models.tsrt.trainer import TSRTTrainer
 from utils.utils import freeze_for_tsrt_training
 
 
-MODEL_NAME = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+MODEL_NAME = "tsrt-lab/TSRT-Qwen3-1.7B"
 
 
 def train():

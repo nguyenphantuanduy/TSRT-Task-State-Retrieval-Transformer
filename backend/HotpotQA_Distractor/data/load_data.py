@@ -55,7 +55,7 @@ def load_tsrt_hotpotqa_teacher() -> DatasetDict:
     """
 
     return load_dataset(
-        "nguyenphantuanduy/TSRT-HotpotQA-Teacher"
+        "tsrt-lab/TSRT-HotpotQA-Teacher"
     )
 
 def print_sample(sample):

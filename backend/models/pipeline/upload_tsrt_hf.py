@@ -11,7 +11,7 @@ from transformers import AutoTokenizer
 
 LOCAL_MODEL_PATH = "./models/tsrt"
 
-HF_REPO = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+HF_REPO = "tsrt-lab/TSRT-Qwen3-1.7B"
 
 TOKENIZER_NAME = "Qwen/Qwen3-1.7B"
 
