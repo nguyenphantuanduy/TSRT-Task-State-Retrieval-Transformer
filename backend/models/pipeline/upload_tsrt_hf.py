@@ -4,7 +4,6 @@ import json
 from huggingface_hub import HfApi, upload_folder
 from transformers import AutoTokenizer
 
-
 # ==========================================
 # Config
 # ==========================================
@@ -14,7 +13,6 @@ LOCAL_MODEL_PATH = "./models/tsrt"
 HF_REPO = "tsrt-lab/TSRT-Qwen3-1.7B"
 
 TOKENIZER_NAME = "Qwen/Qwen3-1.7B"
-
 
 
 # ==========================================
@@ -27,14 +25,12 @@ def check_required_files():
     print("Checking files")
     print("=" * 60)
 
-
     required = [
         "config.json",
         "model.safetensors",
         "modeling_tsrt.py",
         "configuration_tsrt.py",
     ]
-
 
     for f in required:
 
@@ -54,6 +50,49 @@ def check_required_files():
         )
 
 
+# ==========================================
+# Check retriever files
+# ==========================================
+
+def check_retriever_files():
+
+    print("=" * 60)
+    print("Checking retriever files")
+    print("=" * 60)
+
+    retriever_path = os.path.join(
+        LOCAL_MODEL_PATH,
+        "retriever",
+    )
+
+    if not os.path.exists(retriever_path):
+
+        raise FileNotFoundError(
+            f"Missing retriever folder: {retriever_path}"
+        )
+
+    required = [
+        "config.json",
+        "model.safetensors",
+    ]
+
+    for f in required:
+
+        path = os.path.join(
+            retriever_path,
+            f
+        )
+
+        if not os.path.exists(path):
+
+            raise FileNotFoundError(
+                f"Missing retriever file: {path}"
+            )
+
+        print(
+            f"[OK] retriever/{f}"
+        )
+
 
 # ==========================================
 # Add auto map
@@ -66,10 +105,8 @@ def check_auto_map():
         "config.json"
     )
 
-
     with open(config_path, "r") as f:
         config = json.load(f)
-
 
 
     if "auto_map" not in config:
@@ -110,7 +147,6 @@ def check_auto_map():
         )
 
 
-
 # ==========================================
 # Add tokenizer
 # ==========================================
@@ -136,7 +172,6 @@ def save_tokenizer():
     print(
         "[OK] tokenizer saved"
     )
-
 
 
 # ==========================================
@@ -177,7 +212,6 @@ def upload():
     )
 
 
-
 # ==========================================
 # Main
 # ==========================================
@@ -185,6 +219,8 @@ def upload():
 if __name__ == "__main__":
 
     check_required_files()
+
+    check_retriever_files()
 
     check_auto_map()
 

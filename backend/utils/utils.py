@@ -1,5 +1,5 @@
 import torch
-from models.tsrt.modeling_tsrt import TSRTForCausalLM
+from models.tsrt.modeling_tsrt import TSRTForCausalLM, TSRTRetriever
 
 
 def batch_tokenize_documents(
@@ -87,24 +87,22 @@ def batch_tokenize_documents(
     }
 
 def freeze_for_tsrt_training(model: TSRTForCausalLM):
-    """
-    Training strategy:
-
-    1. Unfreeze everything.
-    2. Freeze:
-        - Token embedding
-        - LM head
+    """ Training strategy: 
+    1. Unfreeze everything. 
+    2. Freeze: 
+        - Token embedding 
+        - LM head 
+        - All encoder layers 
         - All decoder layers
-        - FFN (MLP) of encoder layers
-    3. Unfreeze last 2 FFN of encoder and decoder.
-
-    Remaining trainable:
-        - Encoder self-attention
-        - Last 2 encoder FFN
-        - Last 2 decoder FFN
-        - Entire TSRT layers
-        - Retrieval heads
-        - Final norm
+    3. Unfreeze: 
+        - Last 2 decoder layers 
+        - Last 4 encoder layers 
+    Remaining trainable: 
+        - Last 2 decoder layers 
+        - Last 4 encoder layers 
+        - Entire TSRT layers 
+        - Retrieval heads 
+        - Final norm 
     """
 
     # ==========================================================
@@ -129,6 +127,14 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
         param.requires_grad = False
 
     # ==========================================================
+    # Freeze entire decoder
+    # ==========================================================
+
+    for layer in model.model.decoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = False
+
+    # ==========================================================
     # Freeze entire encoder
     # ==========================================================
 
@@ -145,10 +151,10 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
             param.requires_grad = True
 
     # ==========================================================
-    # Unfreeze last 2 encoder layers
+    # Unfreeze last 4 encoder layers
     # ==========================================================
 
-    for layer in model.model.encoder_layers[-2:]:
+    for layer in model.model.encoder_layers[-4:]:
         for param in layer.parameters():
             param.requires_grad = True
 
@@ -159,5 +165,84 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
     print(f"Trainable params: {trainable_params:,}")
     print(f"Total params:     {total_params:,}")
     print(f"Trainable ratio:  {100 * trainable_params / total_params:.2f}%")
+
+    return model
+
+def freeze_for_tsrt_retriever_training(
+    model: TSRTRetriever,
+):
+    """
+    Training strategy for TSRT retriever:
+
+    1. Unfreeze everything.
+    2. Freeze:
+        - Token embedding
+        - First 3 decoder layers
+        - First 8 encoder layers
+
+    Remaining trainable:
+        - Last 4 decoder layers
+        - Last 6 encoder layers
+        - Retrieval projection
+        - Other retriever-specific parameters
+    """
+
+    # ==========================================================
+    # Unfreeze everything
+    # ==========================================================
+
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # ==========================================================
+    # Freeze embedding
+    # ==========================================================
+
+    for param in model.embed_tokens.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Freeze first 3 decoder layers
+    # ==========================================================
+
+    for layer in model.decoder_layers[:3]:
+        for param in layer.parameters():
+            param.requires_grad = False
+
+    # ==========================================================
+    # Freeze first 8 encoder layers
+    # ==========================================================
+
+    for layer in model.encoder_layers[:8]:
+        for param in layer.parameters():
+            param.requires_grad = False
+
+    # ==========================================================
+    # Print statistics
+    # ==========================================================
+
+    total_params = sum(
+        p.numel()
+        for p in model.parameters()
+    )
+
+    trainable_params = sum(
+        p.numel()
+        for p in model.parameters()
+        if p.requires_grad
+    )
+
+    print(
+        f"Trainable params: {trainable_params:,}"
+    )
+
+    print(
+        f"Total params:     {total_params:,}"
+    )
+
+    print(
+        f"Trainable ratio:  "
+        f"{100 * trainable_params / total_params:.2f}%"
+    )
 
     return model

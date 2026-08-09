@@ -4,15 +4,15 @@ import torch
 
 from transformers import (
     AutoTokenizer,
-    AutoModelForCausalLM,
+    AutoModel,
     TrainingArguments,
     EarlyStoppingCallback,
 )
 
-from ..collator import TSRTDataCollator
-from ..data.load_data import load_tsrt_hotpotqa_teacher
 from models.tsrt.trainer import TSRTTrainer
-from utils.utils import freeze_for_tsrt_training
+from ..retriever_collator import TSRTRetrieverCollator
+from ..data.load_data import load_tsrt_hotpotqa_teacher
+from utils.utils import freeze_for_tsrt_retriever_training
 
 
 MODEL_NAME = "tsrt-lab/TSRT-Qwen3-1.7B"
@@ -59,10 +59,11 @@ def train():
     # MODEL
     # =====================================================
 
-    print("Loading model...")
+    print("Loading retriever...")
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModel.from_pretrained(
         MODEL_NAME,
+        subfolder="retriever",
         trust_remote_code=True,
         dtype=torch.bfloat16,
         device_map=device,
@@ -72,15 +73,15 @@ def train():
     # FREEZE
     # =====================================================
 
-    print("Freezing model...")
+    print("Freezing retriever...")
 
-    model = freeze_for_tsrt_training(model)
+    model = freeze_for_tsrt_retriever_training(model)
 
     # =====================================================
     # COLLATOR
     # =====================================================
 
-    collator = TSRTDataCollator(
+    collator = TSRTRetrieverCollator(
         tokenizer=tokenizer,
         document_max_length=512,
     )
@@ -90,12 +91,15 @@ def train():
     # =====================================================
 
     training_args = TrainingArguments(
-        output_dir="./checkpoint",
-        per_device_train_batch_size=1,
-        per_device_eval_batch_size=1,
+        output_dir="./retriever_checkpoint",
+
+        per_device_train_batch_size=8,
+        per_device_eval_batch_size=8,
 
         gradient_accumulation_steps=32,
+
         save_total_limit=2,
+
         learning_rate=2e-5,
         weight_decay=0.01,
 
@@ -131,15 +135,19 @@ def train():
     trainer = TSRTTrainer(
         model=model,
         args=training_args,
+
         train_dataset=train_dataset,
         eval_dataset=validation_dataset,
+
         processing_class=tokenizer,
+
         data_collator=collator,
+
         callbacks=[
             EarlyStoppingCallback(
                 early_stopping_patience=3,
                 early_stopping_threshold=0.0,
-            )
+            ),
         ],
     )
 
@@ -153,8 +161,9 @@ def train():
     # SAVE
     # =====================================================
 
-    trainer.save_model("./best_model")
-    tokenizer.save_pretrained("./best_model")
+    trainer.save_model("./best_retriever")
+
+    tokenizer.save_pretrained("./best_retriever")
 
 
 if __name__ == "__main__":
