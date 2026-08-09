@@ -3092,7 +3092,7 @@ from huggingface_hub import HfApi, login
 # =====================================================
 # CONFIGURATION
 # =====================================================
-REPO_ID = "nguyenphantuanduy/TSRT-Qwen3-1.7B"
+REPO_ID = "tsrt-lab/TSRT-Qwen3-1.7B"
 LOCAL_FOLDER = "./best_model"
 
 # Danh sách các đuôi file liên quan đến weight & config của mô hình
@@ -3155,3 +3155,23 @@ def upload_weights_only():
 
 if __name__ == "__main__":
     upload_weights_only()
+
+from transformers import AutoConfig, AutoModel
+
+MODEL_ID = "models/tsrt"
+
+config = AutoConfig.from_pretrained(
+    MODEL_ID,
+    subfolder="retriever",
+    trust_remote_code=True,
+)
+
+print("Config:", type(config))
+
+model = AutoModel.from_config(
+    config,
+    trust_remote_code=True,
+)
+
+print("Model:", type(model))
+print(model)

@@ -513,11 +513,6 @@ class TSRTDataCollator:
 
 
 
-
-
-
-
-
 if __name__ == "__main__":
 
     from datasets import load_dataset
