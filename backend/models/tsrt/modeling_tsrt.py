@@ -1662,6 +1662,7 @@ class TSRTRetriever(TSRTPreTrainedModel):
                         "retrieval_ranking_loss": None,
                         "positive_score": None,
                         "negative_score": None,
+                        "eval_loss": None
                     }
 
             # self.sample_counter = 0
@@ -1804,6 +1805,7 @@ class TSRTRetriever(TSRTPreTrainedModel):
 
             # debug_grad("ranking_loss", ranking_loss, self.sample_counter)
             self.logged_losses["retrieval_ranking_loss"] = ranking_loss.detach()
+            self.logged_losses["eval_loss"] = ranking_loss.detach()
 
             loss = ranking_loss
             # debug_grad("final loss", loss, self.sample_counter)

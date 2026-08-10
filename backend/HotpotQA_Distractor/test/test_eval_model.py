@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import json
-
 import torch
 
 from transformers import (
     AutoTokenizer,
     AutoModel,
     TrainingArguments,
-    EarlyStoppingCallback,
 )
 
 from models.tsrt.trainer import TSRTTrainer
@@ -20,13 +17,15 @@ from utils.utils import freeze_for_tsrt_retriever_training
 MODEL_NAME = "tsrt-lab/TSRT-Qwen3-1.7B"
 
 
-def train():
+def test_eval():
 
     # =====================================================
     # DEVICE
     # =====================================================
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    print(f"Device: {device}")
 
     # =====================================================
     # DATASET
@@ -36,12 +35,12 @@ def train():
 
     dataset = load_tsrt_hotpotqa_teacher()
 
-    train_dataset = dataset["train"].shuffle(seed=42)
-
     validation_dataset = (
         dataset["validation"]
         .select(range(2000))
     )
+
+    print(f"Validation samples: {len(validation_dataset)}")
 
     # =====================================================
     # TOKENIZER
@@ -93,58 +92,23 @@ def train():
     # =====================================================
 
     training_args = TrainingArguments(
-        output_dir="./retriever_checkpoint",
+        output_dir="./eval_test",
 
-        per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
 
-        gradient_accumulation_steps=32,
-
-        save_total_limit=2,
-
-        learning_rate=2e-5,
-        weight_decay=0.01,
-
-        num_train_epochs=1,
-
         bf16=True,
-
-        # -------------------------------------------------
-        # LOGGING
-        # -------------------------------------------------
-
-        logging_strategy="steps",
-        logging_steps=10,
-        logging_dir="./retriever_checkpoint/logs",
-
-        # -------------------------------------------------
-        # EVALUATION
-        # -------------------------------------------------
-
-        eval_strategy="steps",
-        eval_steps=250,
-
-        # -------------------------------------------------
-        # CHECKPOINT
-        # -------------------------------------------------
-
-        save_strategy="steps",
-        save_steps=250,
-
-        load_best_model_at_end=True,
-
-        metric_for_best_model="loss",
-        greater_is_better=False,
-
-        # -------------------------------------------------
-        # OTHER
-        # -------------------------------------------------
 
         report_to="none",
 
         dataloader_num_workers=4,
 
         remove_unused_columns=False,
+
+        # Important:
+        # simulate the same metric configuration
+        # used during training.
+        metric_for_best_model="loss",
+        greater_is_better=False,
     )
 
     # =====================================================
@@ -155,56 +119,113 @@ def train():
         model=model,
         args=training_args,
 
-        train_dataset=train_dataset,
         eval_dataset=validation_dataset,
 
         processing_class=tokenizer,
 
         data_collator=collator,
-
-        callbacks=[
-            EarlyStoppingCallback(
-                early_stopping_patience=3,
-                early_stopping_threshold=0.0,
-            ),
-        ],
     )
 
     # =====================================================
-    # TRAIN
+    # EVALUATE
     # =====================================================
 
-    trainer.train()
+    print()
+    print("=" * 60)
+    print("RUNNING EVALUATION")
+    print("=" * 60)
+
+    metrics = trainer.evaluate()
 
     # =====================================================
-    # SAVE LOG HISTORY
+    # PRINT METRICS
     # =====================================================
 
-    print("Saving training logs...")
+    print()
+    print("=" * 60)
+    print("EVALUATION METRICS")
+    print("=" * 60)
 
-    log_path = "./retriever_checkpoint/training_log.txt"
-
-    with open(log_path, "w", encoding="utf-8") as f:
-        for log in trainer.state.log_history:
-            f.write(
-                json.dumps(
-                    log,
-                    ensure_ascii=False,
-                    default=str,
-                )
-                + "\n"
-            )
-
-    print(f"Training logs saved to: {log_path}")
+    for key, value in metrics.items():
+        print(f"{key}: {value}")
 
     # =====================================================
-    # SAVE MODEL
+    # CHECK METRIC NAMES
     # =====================================================
 
-    trainer.save_model("./best_retriever")
+    print()
+    print("=" * 60)
+    print("METRIC CHECK")
+    print("=" * 60)
 
-    tokenizer.save_pretrained("./best_retriever")
+    print("Available keys:")
+
+    for key in metrics.keys():
+        print(f"  - {key}")
+
+    print()
+
+    if "eval_retrieval_ranking_loss" in metrics:
+        print(
+            "SUCCESS: eval_retrieval_ranking_loss exists."
+        )
+    else:
+        print(
+            "WARNING: eval_retrieval_ranking_loss NOT found."
+        )
+
+    if "retrieval_ranking_loss" in metrics:
+        print(
+            "WARNING: retrieval_ranking_loss exists "
+            "without eval_ prefix."
+        )
+
+    # =====================================================
+    # CHECK LOSS
+    # =====================================================
+
+    print()
+    print("=" * 60)
+    print("LOSS CHECK")
+    print("=" * 60)
+
+    if "eval_loss" in metrics:
+        print(f"eval_loss: {metrics['eval_loss']}")
+    else:
+        print("eval_loss: NOT FOUND")
+
+    if "eval_retrieval_ranking_loss" in metrics:
+        print(
+            f"eval_retrieval_ranking_loss: "
+            f"{metrics['eval_retrieval_ranking_loss']}"
+        )
+
+    # =====================================================
+    # RESULT
+    # =====================================================
+
+    print()
+    print("=" * 60)
+    print("RESULT")
+    print("=" * 60)
+
+    if "eval_retrieval_ranking_loss" in metrics:
+        print(
+            "Evaluation metric naming looks correct."
+        )
+        print(
+            "The Trainer should be able to use "
+            "'retrieval_ranking_loss' as metric_for_best_model."
+        )
+    else:
+        print(
+            "Evaluation metric naming is still incorrect."
+        )
+        print(
+            "TSRTTrainer.evaluate() is returning the "
+            "ranking loss without the eval_ prefix."
+        )
 
 
 if __name__ == "__main__":
-    train()
+    test_eval()
