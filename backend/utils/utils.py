@@ -178,11 +178,11 @@ def freeze_for_tsrt_retriever_training(
     2. Freeze:
         - Token embedding
         - First 3 decoder layers
-        - First 7 encoder layers
+        - First 6 encoder layers
 
     Remaining trainable:
         - Last 4 decoder layers
-        - Last 7 encoder layers
+        - Last 8 encoder layers
         - Retrieval projection
         - Other retriever-specific parameters
     """
@@ -210,10 +210,10 @@ def freeze_for_tsrt_retriever_training(
             param.requires_grad = False
 
     # ==========================================================
-    # Freeze first 8 encoder layers
+    # Freeze first 6 encoder layers
     # ==========================================================
 
-    for layer in model.encoder_layers[:7]:
+    for layer in model.encoder_layers[:6]:
         for param in layer.parameters():
             param.requires_grad = False
 
