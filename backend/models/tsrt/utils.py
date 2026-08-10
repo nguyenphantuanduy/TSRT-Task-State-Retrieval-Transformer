@@ -234,7 +234,9 @@ def compute_retrieval_ranking_loss(
     valid_query = has_pos & has_neg
 
     if not valid_query.any():
-        return usefulness_scores.new_zeros(())
+        # print("Have a not valid query")
+        # print("usefulness score matrix: ", usefulness_score_matrix)
+        return usefulness_scores.sum() * 0.0
 
     # Keep only valid (B, L)
     scores = usefulness_scores[valid_query]          # (Q, D)

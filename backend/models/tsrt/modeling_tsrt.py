@@ -75,6 +75,21 @@ from transformers.generation import GenerationMixin
 RETRIEVAL_DECISION_THRESHOLD = 0.7
 LOSS_ACCUMULATION_STEPS = 32
 
+def debug_grad(name, x, sample_counter):
+    if not x.requires_grad or x.grad_fn is None:
+        print(
+            f"[GRAD DEBUG] {name:<25} "
+            f"requires_grad={x.requires_grad} | "
+            f"grad_fn={x.grad_fn} | "
+            f"⚠️ SAMPLE={sample_counter}"
+        )
+    else:
+        print(
+            f"[GRAD DEBUG] {name:<25} "
+            f"requires_grad={x.requires_grad} | "
+            f"grad_fn={x.grad_fn}"
+        )
+
 @use_kernel_func_from_hub("rotary_pos_emb")
 def apply_rotary_pos_emb_query(
     q,
@@ -1648,6 +1663,8 @@ class TSRTRetriever(TSRTPreTrainedModel):
                         "positive_score": None,
                         "negative_score": None,
                     }
+
+            # self.sample_counter = 0
             # Initialize weights and apply final processing
             self.post_init()
 
@@ -1666,7 +1683,8 @@ class TSRTRetriever(TSRTPreTrainedModel):
             loss_accumulation_steps: int | None = None,
             **kwargs: Unpack[TransformersKwargs],
         ) -> TSRTRetrieverOutput:
-
+        # self.sample_counter += 1
+        # print("usefulness score matrix: ", usefulness_score_matrix)
         loss_accumulation_steps = LOSS_ACCUMULATION_STEPS if loss_accumulation_steps is None else loss_accumulation_steps
 
         if (input_ids is None) ^ (inputs_embeds is not None):
@@ -1710,7 +1728,6 @@ class TSRTRetriever(TSRTPreTrainedModel):
                 attention_mask=causal_mask_mapping[self.config.layer_types[i]],
                 position_embeddings=decoder_position_embeddings,
                 position_ids=position_ids,
-                use_cache=False,
                 **kwargs,
             )
                 
@@ -1736,7 +1753,6 @@ class TSRTRetriever(TSRTPreTrainedModel):
                 attention_mask=encoder_attention_mask,
                 position_embeddings=encoder_position_embeddings,
                 position_ids=encoder_position_ids,
-                use_cache=False,
                 **kwargs,
             )
                     
@@ -1773,6 +1789,7 @@ class TSRTRetriever(TSRTPreTrainedModel):
             doc_embs.transpose(-1, -2),
         ).squeeze(1)  # (B, D)
 
+        # debug_grad("usefulness_score", usefulness_score, self.sample_counter)
         # ==================================================
         # Retrieval ranking loss
         # ==================================================
@@ -1785,10 +1802,11 @@ class TSRTRetriever(TSRTPreTrainedModel):
                 usefulness_score_matrix=usefulness_score_matrix.unsqueeze(1),  # (B, 1, D)
             )
 
+            # debug_grad("ranking_loss", ranking_loss, self.sample_counter)
             self.logged_losses["retrieval_ranking_loss"] = ranking_loss.detach()
 
-            loss = ranking_loss / loss_accumulation_steps
-
+            loss = ranking_loss
+            # debug_grad("final loss", loss, self.sample_counter)
             positive_score, negative_score = compute_positive_negative_scores(
                 usefulness_scores=usefulness_score.unsqueeze(1),
                 usefulness_score_matrix=usefulness_score_matrix.unsqueeze(1),
