@@ -93,8 +93,8 @@ def train():
     training_args = TrainingArguments(
         output_dir="./retriever_checkpoint",
 
-        per_device_train_batch_size=8,
-        per_device_eval_batch_size=8,
+        per_device_train_batch_size=1,
+        per_device_eval_batch_size=1,
 
         gradient_accumulation_steps=32,
 
@@ -103,7 +103,7 @@ def train():
         learning_rate=2e-5,
         weight_decay=0.01,
 
-        num_train_epochs=0.1,
+        num_train_epochs=1,
 
         bf16=True,
 
@@ -111,14 +111,14 @@ def train():
         logging_steps=10,
 
         eval_strategy="steps",
-        eval_steps=500,
+        eval_steps=250,
 
         save_strategy="steps",
-        save_steps=500,
+        save_steps=250,
 
         load_best_model_at_end=True,
 
-        metric_for_best_model="eval_loss",
+        metric_for_best_model="retrieval_ranking_loss",
         greater_is_better=False,
 
         report_to="none",

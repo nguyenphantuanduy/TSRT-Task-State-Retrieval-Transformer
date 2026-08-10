@@ -1,0 +1,35 @@
+Freezing retriever...
+Trainable params: 505,459,201
+Total params:     1,370,320,129
+Trainable ratio:  36.89%
+[transformers] The tokenizer has new PAD/BOS/EOS tokens that differ from the model config and generation config. The model config and generation config were aligned accordingly, being updated with the tokenizer's values. Updated tokens: {'bos_token_id': None, 'pad_token_id': 151643}.
+{'loss': '2.108', 'grad_norm': '4.875', 'learning_rate': '1.936e-05', 'retrieval_ranking_loss': '2.16', 'positive_score': '0.6797', 'negative_score': '0.6758', 'epoch': '0.003538'}
+{'loss': '1.916', 'grad_norm': '5.219', 'learning_rate': '1.866e-05', 'retrieval_ranking_loss': '1.798', 'positive_score': '0.6875', 'negative_score': '0.6445', 'epoch': '0.007076'}
+{'loss': '1.907', 'grad_norm': '6.188', 'learning_rate': '1.795e-05', 'retrieval_ranking_loss': '1.85', 'positive_score': '0.6914', 'negative_score': '0.625', 'epoch': '0.01061'}
+{'loss': '1.882', 'grad_norm': '5.938', 'learning_rate': '1.724e-05', 'retrieval_ranking_loss': '1.574', 'positive_score': '0.7422', 'negative_score': '0.6641', 'epoch': '0.01415'}
+{'loss': '1.884', 'grad_norm': '5.688', 'learning_rate': '1.654e-05', 'retrieval_ranking_loss': '1.647', 'positive_score': '0.6094', 'negative_score': '0.5586', 'epoch': '0.01769'}
+{'loss': '1.781', 'grad_norm': '5.781', 'learning_rate': '1.583e-05', 'retrieval_ranking_loss': '2.154', 'positive_score': '0.6758', 'negative_score': '0.6562', 'epoch': '0.02123'}
+{'loss': '1.838', 'grad_norm': '6.125', 'learning_rate': '1.512e-05', 'retrieval_ranking_loss': '1.87', 'positive_score': '0.6953', 'negative_score': '0.6602', 'epoch': '0.02477'}
+{'loss': '1.781', 'grad_norm': '6.156', 'learning_rate': '1.442e-05', 'retrieval_ranking_loss': '2.069', 'positive_score': '0.6211', 'negative_score': '0.5898', 'epoch': '0.0283'}
+{'loss': '1.825', 'grad_norm': '7.906', 'learning_rate': '1.371e-05', 'retrieval_ranking_loss': '1.737', 'positive_score': '0.7031', 'negative_score': '0.6406', 'epoch': '0.03184'}
+{'loss': '1.828', 'grad_norm': '6.438', 'learning_rate': '1.3e-05', 'retrieval_ranking_loss': '1.732', 'positive_score': '0.6797', 'negative_score': '0.6367', 'epoch': '0.03538'}
+{'loss': '1.797', 'grad_norm': '6.875', 'learning_rate': '1.23e-05', 'retrieval_ranking_loss': '0.9727', 'positive_score': '0.7031', 'negative_score': '0.582', 'epoch': '0.03892'}
+{'loss': '1.714', 'grad_norm': '6.906', 'learning_rate': '1.159e-05', 'retrieval_ranking_loss': '1.646', 'positive_score': '0.6094', 'negative_score': '0.5586', 'epoch': '0.04246'}
+{'loss': '1.731', 'grad_norm': '7.531', 'learning_rate': '1.088e-05', 'retrieval_ranking_loss': '2.091', 'positive_score': '0.6367', 'negative_score': '0.6094', 'epoch': '0.04599'}
+{'loss': '1.763', 'grad_norm': '8.812', 'learning_rate': '1.018e-05', 'retrieval_ranking_loss': '1.907', 'positive_score': '0.625', 'negative_score': '0.5742', 'epoch': '0.04953'}
+{'loss': '1.712', 'grad_norm': '8.438', 'learning_rate': '9.47e-06', 'retrieval_ranking_loss': '0.8486', 'positive_score': '0.7266', 'negative_score': '0.5742', 'epoch': '0.05307'}
+{'loss': '1.798', 'grad_norm': '7.562', 'learning_rate': '8.763e-06', 'retrieval_ranking_loss': '1.677', 'positive_score': '0.5859', 'negative_score': '0.5273', 'epoch': '0.05661'}
+{'loss': '1.694', 'grad_norm': '7.844', 'learning_rate': '8.057e-06', 'retrieval_ranking_loss': '1.883', 'positive_score': '0.6406', 'negative_score': '0.582', 'epoch': '0.06015'}
+{'loss': '1.757', 'grad_norm': '7.75', 'learning_rate': '7.35e-06', 'retrieval_ranking_loss': '1.284', 'positive_score': '0.6523', 'negative_score': '0.5625', 'epoch': '0.06368'}
+{'loss': '1.761', 'grad_norm': '7.75', 'learning_rate': '6.643e-06', 'retrieval_ranking_loss': '1.221', 'positive_score': '0.7344', 'negative_score': '0.625', 'epoch': '0.06722'}
+{'loss': '1.743', 'grad_norm': '8.375', 'learning_rate': '5.936e-06', 'retrieval_ranking_loss': '2.37', 'positive_score': '0.5742', 'negative_score': '0.5469', 'epoch': '0.07076'}
+{'loss': '1.702', 'grad_norm': '8.125', 'learning_rate': '5.23e-06', 'retrieval_ranking_loss': '2.837', 'positive_score': '0.582', 'negative_score': '0.6133', 'epoch': '0.0743'}
+{'loss': '1.751', 'grad_norm': '7.125', 'learning_rate': '4.523e-06', 'retrieval_ranking_loss': '1.472', 'positive_score': '0.6953', 'negative_score': '0.5977', 'epoch': '0.07784'}
+{'loss': '1.767', 'grad_norm': '8.562', 'learning_rate': '3.816e-06', 'retrieval_ranking_loss': '1.764', 'positive_score': '0.6328', 'negative_score': '0.5859', 'epoch': '0.08137'}
+{'loss': '1.677', 'grad_norm': '7.719', 'learning_rate': '3.11e-06', 'retrieval_ranking_loss': '1.391', 'positive_score': '0.6562', 'negative_score': '0.5547', 'epoch': '0.08491'}
+{'loss': '1.779', 'grad_norm': '7.969', 'learning_rate': '2.403e-06', 'retrieval_ranking_loss': '1.826', 'positive_score': '0.6211', 'negative_score': '0.582', 'epoch': '0.08845'}
+{'loss': '1.702', 'grad_norm': '8.125', 'learning_rate': '1.696e-06', 'retrieval_ranking_loss': '1.957', 'positive_score': '0.6172', 'negative_score': '0.582', 'epoch': '0.09199'}
+{'loss': '1.761', 'grad_norm': '8.438', 'learning_rate': '9.894e-07', 'retrieval_ranking_loss': '0.933', 'positive_score': '0.6641', 'negative_score': '0.5156', 'epoch': '0.09553'}
+{'loss': '1.675', 'grad_norm': '7.906', 'learning_rate': '2.827e-07', 'retrieval_ranking_loss': '1.993', 'positive_score': '0.6836', 'negative_score': '0.6562', 'epoch': '0.09906'}
+{'eval_runtime': '212.2', 'eval_samples_per_second': '9.425', 'eval_steps_per_second': '9.425', 'retrieval_ranking_loss': '1.059', 'positive_score': '0.6484', 'negative_score': '0.5195', 'epoch': '0.1001'}
+100%|████████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 283/283 [33:02<00:00,  6.49s/it][transformers] early stopping required metric_for_best_model, but did not find eval_loss so early stopping is disabled██| 2000/2000 [03:31<00:00,  9.00it/s]
