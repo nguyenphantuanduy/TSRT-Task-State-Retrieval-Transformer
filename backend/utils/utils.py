@@ -96,10 +96,10 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
         - All decoder layers
     3. Unfreeze: 
         - Last 2 decoder layers 
-        - Last 4 encoder layers 
+        - Last 2 encoder layers 
     Remaining trainable: 
         - Last 2 decoder layers 
-        - Last 4 encoder layers 
+        - Last 2 encoder layers 
         - Entire TSRT layers 
         - Retrieval heads 
         - Final norm 
@@ -143,18 +143,18 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
             param.requires_grad = False
 
     # ==========================================================
-    # Unfreeze last 2 decoder layers
+    # Unfreeze last 4 decoder layers
     # ==========================================================
 
-    for layer in model.model.decoder_layers[-2:]:
+    for layer in model.model.decoder_layers[-4:]:
         for param in layer.parameters():
             param.requires_grad = True
 
     # ==========================================================
-    # Unfreeze last 4 encoder layers
+    # Unfreeze last 8 encoder layers
     # ==========================================================
 
-    for layer in model.model.encoder_layers[-4:]:
+    for layer in model.model.encoder_layers[-8:]:
         for param in layer.parameters():
             param.requires_grad = True
 
