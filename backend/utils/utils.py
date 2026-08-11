@@ -95,10 +95,10 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
         - All encoder layers 
         - All decoder layers
     3. Unfreeze: 
-        - Last 2 decoder layers 
+        - Last 4 decoder layers 
         - Last 2 encoder layers 
     Remaining trainable: 
-        - Last 2 decoder layers 
+        - Last 4 decoder layers 
         - Last 2 encoder layers 
         - Entire TSRT layers 
         - Retrieval heads 
@@ -151,10 +151,10 @@ def freeze_for_tsrt_training(model: TSRTForCausalLM):
             param.requires_grad = True
 
     # ==========================================================
-    # Unfreeze last 4 encoder layers
+    # Unfreeze last 2 encoder layers
     # ==========================================================
 
-    for layer in model.model.encoder_layers[-4:]:
+    for layer in model.model.encoder_layers[-2:]:
         for param in layer.parameters():
             param.requires_grad = True
 
@@ -238,6 +238,220 @@ def freeze_for_tsrt_retriever_training(
 
     print(
         f"Total params:     {total_params:,}"
+    )
+
+    print(
+        f"Trainable ratio:  "
+        f"{100 * trainable_params / total_params:.2f}%"
+    )
+
+    return model
+
+
+def freeze_for_mini_tsrt_training(
+    model: TSRTForCausalLM,
+):
+    """
+    Training strategy for Mini TSRT:
+
+    1. Unfreeze everything.
+    2. Freeze:
+        - Token embedding
+        - LM head
+    3. Keep everything else trainable:
+        - All 7 decoder layers
+        - All 7 encoder layers
+        - Entire 14 TSRT layers
+        - Retrieval heads / projection
+        - Final norm
+
+    The Mini model intentionally does not freeze
+    any encoder or decoder layers.
+    """
+
+    # ==========================================================
+    # Unfreeze everything
+    # ==========================================================
+
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # ==========================================================
+    # Freeze embedding
+    # ==========================================================
+
+    for param in model.model.embed_tokens.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Freeze LM head
+    # ==========================================================
+
+    for param in model.lm_head.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Encoder
+    #
+    # Mini:
+    # 7 encoder layers
+    #
+    # Keep ALL encoder layers trainable.
+    # ==========================================================
+
+    for layer in model.model.encoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = True
+
+    # ==========================================================
+    # Decoder
+    #
+    # Mini:
+    # 7 decoder layers
+    #
+    # Keep ALL decoder layers trainable.
+    # ==========================================================
+
+    for layer in model.model.decoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = True
+
+    # ==========================================================
+    # TSRT layers
+    #
+    # Mini:
+    # 14 TSRT layers
+    #
+    # Already trainable from the initial
+    # unfreeze-all operation.
+    # ==========================================================
+
+    # No action required.
+
+    # ==========================================================
+    # Print statistics
+    # ==========================================================
+
+    total_params = sum(
+        p.numel()
+        for p in model.parameters()
+    )
+
+    trainable_params = sum(
+        p.numel()
+        for p in model.parameters()
+        if p.requires_grad
+    )
+
+    print(
+        f"Trainable params: "
+        f"{trainable_params:,}"
+    )
+
+    print(
+        f"Total params:     "
+        f"{total_params:,}"
+    )
+
+    print(
+        f"Trainable ratio:  "
+        f"{100 * trainable_params / total_params:.2f}%"
+    )
+
+    return model
+
+
+def freeze_for_mini_tsrt_retriever_training(
+    model: TSRTRetriever,
+):
+    """
+    Training strategy for Mini TSRT Retriever:
+
+    1. Unfreeze everything.
+    2. Freeze:
+        - Token embedding
+    3. Keep everything else trainable:
+        - All 7 decoder layers
+        - All 7 encoder layers
+        - Retrieval projection
+        - Other retriever-specific parameters
+
+    The Mini Retriever intentionally does not freeze
+    any encoder or decoder layers.
+    """
+
+    # ==========================================================
+    # Unfreeze everything
+    # ==========================================================
+
+    for param in model.parameters():
+        param.requires_grad = True
+
+    # ==========================================================
+    # Freeze embedding
+    # ==========================================================
+
+    for param in model.embed_tokens.parameters():
+        param.requires_grad = False
+
+    # ==========================================================
+    # Encoder
+    #
+    # Mini:
+    # 7 encoder layers
+    #
+    # Keep ALL encoder layers trainable.
+    # ==========================================================
+
+    for layer in model.encoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = True
+
+    # ==========================================================
+    # Decoder
+    #
+    # Mini:
+    # 7 decoder layers
+    #
+    # Keep ALL decoder layers trainable.
+    # ==========================================================
+
+    for layer in model.decoder_layers:
+        for param in layer.parameters():
+            param.requires_grad = True
+
+    # ==========================================================
+    # Retrieval projection
+    #
+    # Already trainable from the initial
+    # unfreeze-all operation.
+    # ==========================================================
+
+    # No action required.
+
+    # ==========================================================
+    # Print statistics
+    # ==========================================================
+
+    total_params = sum(
+        p.numel()
+        for p in model.parameters()
+    )
+
+    trainable_params = sum(
+        p.numel()
+        for p in model.parameters()
+        if p.requires_grad
+    )
+
+    print(
+        f"Trainable params: "
+        f"{trainable_params:,}"
+    )
+
+    print(
+        f"Total params:     "
+        f"{total_params:,}"
     )
 
     print(
