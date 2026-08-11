@@ -6,19 +6,35 @@ import torch
 
 from transformers import (
     AutoTokenizer,
-    AutoModelForCausalLM,
+    AutoModel,
     TrainingArguments,
     EarlyStoppingCallback,
 )
 
-from ..collator import TSRTDataCollator
-from ..data.load_data import load_tsrt_hotpotqa_teacher
 from models.tsrt.trainer import TSRTTrainer
-from utils.utils import freeze_for_tsrt_training
+from ...retriever_collator import TSRTRetrieverCollator
+from ...data.load_data import load_tsrt_hotpotqa_teacher
+from utils.utils import (
+    freeze_for_mini_tsrt_retriever_training,
+)
 
+
+# ==========================================================
+# MODEL
+# ==========================================================
 
 MODEL_NAME = "tsrt-lab/TSRT-Qwen3-1.7B"
 
+MODEL_SUBFOLDER = "mini/retriever"
+
+CHECKPOINT_DIR = "./mini_retriever_checkpoint"
+
+BEST_MODEL_DIR = "./mini_best_retriever"
+
+
+# ==========================================================
+# TRAIN
+# ==========================================================
 
 def train():
 
@@ -26,7 +42,11 @@ def train():
     # DEVICE
     # =====================================================
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = (
+        "cuda"
+        if torch.cuda.is_available()
+        else "cpu"
+    )
 
     # =====================================================
     # DATASET
@@ -36,7 +56,10 @@ def train():
 
     dataset = load_tsrt_hotpotqa_teacher()
 
-    train_dataset = dataset["train"].shuffle(seed=42)
+    train_dataset = (
+        dataset["train"]
+        .shuffle(seed=42)
+    )
 
     validation_dataset = (
         dataset["validation"]
@@ -61,10 +84,11 @@ def train():
     # MODEL
     # =====================================================
 
-    print("Loading model...")
+    print("Loading Mini TSRT Retriever...")
 
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModel.from_pretrained(
         MODEL_NAME,
+        subfolder=MODEL_SUBFOLDER,
         trust_remote_code=True,
         dtype=torch.bfloat16,
         device_map=device,
@@ -74,17 +98,24 @@ def train():
     # FREEZE
     # =====================================================
 
-    print("Freezing model...")
+    print(
+        "Applying Mini Retriever "
+        "training strategy..."
+    )
 
-    model = freeze_for_tsrt_training(model)
+    model = (
+        freeze_for_mini_tsrt_retriever_training(
+            model
+        )
+    )
 
     # =====================================================
     # COLLATOR
     # =====================================================
 
-    collator = TSRTDataCollator(
+    collator = TSRTRetrieverCollator(
         tokenizer=tokenizer,
-        document_max_length=384,
+        document_max_length=512,
     )
 
     # =====================================================
@@ -92,7 +123,7 @@ def train():
     # =====================================================
 
     training_args = TrainingArguments(
-        output_dir="./checkpoint",
+        output_dir=CHECKPOINT_DIR,
 
         per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
@@ -104,7 +135,7 @@ def train():
         learning_rate=2e-5,
         weight_decay=0.01,
 
-        num_train_epochs=0.7,
+        num_train_epochs=1,
 
         bf16=True,
 
@@ -131,7 +162,7 @@ def train():
 
         load_best_model_at_end=True,
 
-        metric_for_best_model="eval_loss",
+        metric_for_best_model="loss",
         greater_is_better=False,
 
         # -------------------------------------------------
@@ -164,7 +195,7 @@ def train():
             EarlyStoppingCallback(
                 early_stopping_patience=3,
                 early_stopping_threshold=0.0,
-            )
+            ),
         ],
     )
 
@@ -178,12 +209,23 @@ def train():
     # SAVE LOG HISTORY
     # =====================================================
 
-    print("Saving training logs...")
+    print(
+        "Saving Mini Retriever "
+        "training logs..."
+    )
 
-    log_path = "./checkpoint/training_log.txt"
+    log_path = (
+        f"{CHECKPOINT_DIR}/training_log.txt"
+    )
 
-    with open(log_path, "w", encoding="utf-8") as f:
+    with open(
+        log_path,
+        "w",
+        encoding="utf-8",
+    ) as f:
+
         for log in trainer.state.log_history:
+
             f.write(
                 json.dumps(
                     log,
@@ -193,17 +235,36 @@ def train():
                 + "\n"
             )
 
-    print(f"Training logs saved to: {log_path}")
+    print(
+        f"Training logs saved to: "
+        f"{log_path}"
+    )
 
     # =====================================================
-    # SAVE MODEL
+    # SAVE BEST MODEL
     # =====================================================
 
-    print("Saving best model...")
+    print(
+        "Saving best Mini Retriever..."
+    )
 
-    trainer.save_model("./best_model")
-    tokenizer.save_pretrained("./best_model")
+    trainer.save_model(
+        BEST_MODEL_DIR
+    )
 
+    tokenizer.save_pretrained(
+        BEST_MODEL_DIR
+    )
+
+    print(
+        f"Mini Retriever saved to: "
+        f"{BEST_MODEL_DIR}"
+    )
+
+
+# ==========================================================
+# ENTRY POINT
+# ==========================================================
 
 if __name__ == "__main__":
     train()

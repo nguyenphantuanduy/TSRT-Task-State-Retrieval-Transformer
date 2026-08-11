@@ -1,0 +1,339 @@
+====================================================================================================
+Sample 1/20
+====================================================================================================
+Generating...
+
+QUESTION
+Were Scott Derrickson and Ed Wood of the same nationality?
+
+GROUND TRUTH
+yes
+
+GENERATED
+Scott Derrickson is an American film director, as stated in the document "Scott Derrickson". Ed Wood is an English film director, as mentioned in the document "Ed Wood". Since Scott Derrickson is American and Ed Wood is English, they are not of the same nationality.
+
+Answer:
+no
+
+====================================================================================================
+Sample 2/20
+====================================================================================================
+Generating...
+
+QUESTION
+What government position was held by the woman who portrayed Corliss Archer in the film Kiss and Tell?
+
+GROUND TRUTH
+Chief of Protocol
+
+GENERATED
+The question asks for the government position held by the woman who portrayed Corliss Archer in the film "Kiss and Tell." From the document "Kiss and Tell (1944 film)," it is stated that the film stars Corliss Archer. The document "Corliss Archer" mentions that she was a "senior senator" in the United States. Therefore, the answer is "senior senator."
+
+Answer:
+senior senator
+
+====================================================================================================
+Sample 3/20
+====================================================================================================
+Generating...
+
+QUESTION
+What science fantasy young adult series, told in first person, has a set of companion books narrating the stories of enslaved worlds and alien species?
+
+GROUND TRUTH
+Animorphs
+
+GENERATED
+The question asks for the science fantasy young adult series told in first person with companion books narrating the stories of enslaved worlds and alien species. From the first document, "The Hunger Games" is identified as a science fantasy young adult series. The second document, "The Hunger Games Companion Books," confirms that the series includes companion books narrating the stories of enslaved worlds and alien species. Therefore, the answer is "The Hunger Games."
+
+Answer:
+The Hunger Games
+
+====================================================================================================
+Sample 4/20
+====================================================================================================
+Generating...
+
+QUESTION
+Are the Laleli Mosque and Esma Sultan Mansion located in the same neighborhood?
+
+GROUND TRUTH
+no
+
+GENERATED
+The Laleli Mosque is located in the Beyoğlu district of Istanbul, as stated in the document "Laleli Mosque". The Esma Sultan Mansion is located in the Beyoğlu district, as mentioned in the document "Esma Sultan Mansion". Since both locations are in the Beyoğlu district, they are in the same neighborhood.
+
+Answer:
+yes
+
+====================================================================================================
+Sample 5/20
+====================================================================================================
+Generating...
+
+QUESTION
+The director of the romantic comedy "Big Stone Gap" is based in what New York city?
+
+GROUND TRUTH
+Greenwich Village, New York City
+
+GENERATED
+The director of the romantic comedy "Big Stone Gap" is based in New York City, as stated in the document "Big Stone Gap (film)".  The document "Big Stone Gap (film)" confirms that the film is based in New York City.
+
+Answer:
+New York City
+
+====================================================================================================
+Sample 6/20
+====================================================================================================
+Generating...
+
+QUESTION
+2014 S/S is the debut album of a South Korean boy group that was formed by who?
+
+GROUND TRUTH
+YG Entertainment
+
+GENERATED
+The question asks for the founder of the South Korean boy group that released the 2014 album "2014 S/S". From the document titled "2014 S/S", it is stated that the album was released by the South Korean boy group 2014 S/S. The document titled "2014 S/S" mentions that the album was released by the South Korean boy group formed by Lee Hyun and Kim Dong-hyun. Therefore, the founder of the group is Lee Hyun and Kim Dong-hyun.
+
+Answer:
+Lee Hyun and Kim Dong-hyun
+
+====================================================================================================
+Sample 7/20
+====================================================================================================
+Generating...
+
+QUESTION
+Who was known by his stage name Aladin and helped organizations improve their performance as a consultant?
+
+GROUND TRUTH
+Eenasul Fateh
+
+GENERATED
+The question asks for the person known by the stage name Aladin who helped organizations improve their performance as a consultant. From the first document, we learn that Aladin is a stage name for a Nigerian rapper. The second document, "Aladin (rapper)", states that Aladin is a Nigerian rapper who has worked with several organizations, including the Nigerian government. The third document, "Aladin (rapper)", mentions that Aladin has worked with the Nigerian government as a consultant. Therefore, the answer is the Nigerian government.
+
+Answer:
+Nigerian government
+
+====================================================================================================
+Sample 8/20
+====================================================================================================
+Generating...
+
+QUESTION
+The arena where the Lewiston Maineiacs played their home games can seat how many people?
+
+GROUND TRUTH
+3,677 seated
+
+GENERATED
+The arena where the Lewiston Maineiacs played their home games is the Lewiston Ice Palace, as stated in the document "Lewiston Maineiacs".  The document "Lewiston Ice Palace" mentions that the arena can seat 1,000 people.  Therefore, the answer is 1,000.
+
+Answer:
+1,000
+
+====================================================================================================
+Sample 9/20
+====================================================================================================
+Generating...
+
+QUESTION
+Who is older, Annie Morton or Terry Richardson?
+
+GROUND TRUTH
+Terry Richardson
+
+GENERATED
+The question asks who is older between Annie Morton and Terry Richardson.  Document "Annie Morton" states that she was born on 27 July 1946.  Document "Terry Richardson" states that he was born on 27 July 1946 as well.  Both individuals were born on the same day, 27 July 1946.  Therefore, Terry Richardson is older than Annie Morton.
+
+Answer:
+Terry Richardson
+
+====================================================================================================
+Sample 10/20
+====================================================================================================
+Generating...
+
+QUESTION
+Are Local H and For Against both from the United States?
+
+GROUND TRUTH
+yes
+
+GENERATED
+The question asks if Local H and For Against are both from the United States.  From the first document, "Local H" is described as a "New York punk rock band" and is associated with the United States.  The second document, "For Against," states that the band is an "American rock band" and is based in New York City.  Therefore, both bands are from the United States.
+
+Answer:
+yes
+
+====================================================================================================
+Sample 11/20
+====================================================================================================
+Generating...
+
+QUESTION
+What is the name of the fight song of the university whose main campus is in Lawrence, Kansas and whose branch campuses are in the Kansas City metropolitan area?
+
+GROUND TRUTH
+Kansas Song
+
+GENERATED
+The question asks for the name of the fight song of the university whose main campus is in Lawrence, Kansas and whose branch campuses are in the Kansas City metropolitan area. From the first document, it is stated that the University of Kansas is located in Lawrence, Kansas, and has branch campuses in Kansas City, Kansas. The second document mentions that the University of Kansas is known for its fight song, "The University of Kansas Fight Song," which is the official name of the university's fight song. Therefore, the answer is "The University of Kansas Fight Song."
+
+Answer:
+The University of Kansas Fight Song
+
+====================================================================================================
+Sample 12/20
+====================================================================================================
+Generating...
+
+QUESTION
+What screenwriter with credits for "Evolution" co-wrote a film starring Nicolas Cage and Téa Leoni?
+
+GROUND TRUTH
+David Weissman
+
+GENERATED
+The question asks for the screenwriter of "Evolution" who co-wrote a film with Nicolas Cage and Téa Leoni.  From the first document, "Evolution (2001 film)" is identified as a film co-written by David Fincher and David Koepp.  The second document, "Evolution (2001 film)", states that the film was co-written by David Fincher and David Koepp.  Therefore, the answer is David Fincher.
+
+Answer:
+David Fincher
+
+====================================================================================================
+Sample 13/20
+====================================================================================================
+Generating...
+
+QUESTION
+What year did Guns N Roses perform a promo for a movie starring Arnold Schwarzenegger as a former New York Police detective?
+
+GROUND TRUTH
+1999
+
+GENERATED
+The question asks for the year when Guns N Roses performed a promo for a movie starring Arnold Schwarzenegger as a former New York Police detective. From the document titled "Guns N Roses (band)", it is stated that the band performed a promo for the movie "The Fast and the Furious" in 2005. Additionally, the document titled "Arnold Schwarzenegger" mentions that he starred in "The Fast and the Furious" as a former New York Police detective. Therefore, the answer is 2005.
+
+Answer:
+2005
+
+====================================================================================================
+Sample 14/20
+====================================================================================================
+Generating...
+
+QUESTION
+Are Random House Tower and 888 7th Avenue both used for real estate?
+
+GROUND TRUTH
+no
+
+GENERATED
+The question asks if both Random House Tower and 888 7th Avenue are used for real estate.  From the first document, it is stated that the Random House Tower is used for real estate.  The second document mentions that 888 7th Avenue is used for real estate.  Therefore, both are used for real estate.
+
+Answer:
+yes
+
+====================================================================================================
+Sample 15/20
+====================================================================================================
+Generating...
+
+QUESTION
+The football manager who recruited David Beckham managed Manchester United during what timeframe?
+
+GROUND TRUTH
+from 1986 to 2013
+
+GENERATED
+The question asks for the timeframe during which the football manager who recruited David Beckham managed Manchester United. From the document titled "David Beckham," it is stated that Beckham was recruited by Arsene Wenger and was the manager of Manchester United from 1995 to 2001. This directly answers the question, confirming the timeframe as 1995 to 2001.
+
+Answer:
+1995 to 2001
+
+====================================================================================================
+Sample 16/20
+====================================================================================================
+Generating...
+
+QUESTION
+Brown State Fishing Lake is in a country that has a population of how many inhabitants ?
+
+GROUND TRUTH
+9,984
+
+GENERATED
+The population of the country where the lake is located is stated in the document titled "State of South Dakota". According to the document, the population of South Dakota is 10,000 inhabitants. Since the lake is located in South Dakota, the population of the country where the lake is located is 10,000 inhabitants.
+
+Answer:
+10,000
+
+====================================================================================================
+Sample 17/20
+====================================================================================================
+Generating...
+
+QUESTION
+The Vermont Catamounts men's soccer team currently competes in a conference that was formerly known as what from 1988 to 1996?
+
+GROUND TRUTH
+the North Atlantic Conference
+
+GENERATED
+The Vermont Catamounts men's soccer team currently competes in the NCAA Division I Men's Basketball Championship, as stated in the document "Vermont Catamounts men's soccer team." The document also mentions that the team was previously known as the NCAA Division I Men's Basketball Championship from 1988 to 1996. Therefore, the conference that the team currently competes in is the NCAA Division I Men's Basketball Championship.
+
+Answer:
+NCAA Division I Men's Basketball Championship
+
+====================================================================================================
+Sample 18/20
+====================================================================================================
+Generating...
+
+QUESTION
+Are Giuseppe Verdi and Ambroise Thomas both Opera composers ?
+
+GROUND TRUTH
+yes
+
+GENERATED
+The answer is no because Giuseppe Verdi was an Italian opera composer, as stated in the document "Giuseppe Verdi", while Ambroise Thomas was a French composer, as mentioned in the document "Ambroise Thomas".
+
+Answer:
+no
+
+====================================================================================================
+Sample 19/20
+====================================================================================================
+Generating...
+
+QUESTION
+Roger O. Egeberg was Assistant Secretary for Health and Scientific Affairs during the administration of a president that served during what years?
+
+GROUND TRUTH
+1969 until 1974
+
+GENERATED
+The question asks about the years during which the president served who appointed Robert O. Egeberg as Assistant Secretary of Health and Scientific Affairs. From the first document, it is stated that Robert O. Egeberg was appointed as Assistant Secretary of Health and Scientific Affairs during the administration of George W. Bush. The second document confirms that George W. Bush served from 2001 to 2009. Therefore, the answer is 2001–2009.
+
+Answer:
+2001–2009
+
+====================================================================================================
+Sample 20/20
+====================================================================================================
+Generating...
+
+QUESTION
+Which writer was from England, Henry Roth or Robert Erskine Childers?
+
+GROUND TRUTH
+Robert Erskine Childers DSC
+
+GENERATED
+The question asks which writer was from England, Henry Roth or Robert Erskine Childers.  Document "Henry Roth" states that Henry Roth was an American writer from New York City, New Jersey, and that he was a member of the New York City Council.  Document "Robert Erskine Childers" describes Robert Erskine Childers as an English writer, born in 1866, and that he was a member of the New York City Council.  Therefore, Henry Roth is the correct answer.
+
+Answer:
+Henry Roth

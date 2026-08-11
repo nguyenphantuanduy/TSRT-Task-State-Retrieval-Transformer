@@ -69,7 +69,7 @@ def main():
 
     collator = TSRTDataCollator(
         tokenizer=tokenizer,
-        document_max_length=384,
+        document_max_length=512,
     )
 
     # ======================================================
@@ -134,7 +134,6 @@ def main():
             eos_token_id=tokenizer.eos_token_id,
 
             pad_token_id=tokenizer.pad_token_id,
-            retrieve_top_k=5,
             use_cache=True,
         )
 
