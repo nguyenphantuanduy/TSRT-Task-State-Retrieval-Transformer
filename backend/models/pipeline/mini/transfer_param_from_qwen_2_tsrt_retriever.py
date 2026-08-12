@@ -43,7 +43,7 @@ def build_mini_tsrt_retriever_from_qwen():
 
     config = AutoConfig.from_pretrained(
         "models/tsrt",
-        subfolder="retriever",
+        subfolder="mini/retriever",
         trust_remote_code=True,
     )
 

@@ -66,7 +66,6 @@ def train():
 
     tokenizer = AutoTokenizer.from_pretrained(
         MODEL_NAME,
-        subfolder=MODEL_SUBFOLDER,
         trust_remote_code=True,
     )
 
@@ -123,7 +122,7 @@ def train():
         learning_rate=2e-5,
         weight_decay=0.01,
 
-        num_train_epochs=0.7,
+        num_train_epochs=1,
 
         bf16=True,
 

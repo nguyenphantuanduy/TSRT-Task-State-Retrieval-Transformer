@@ -91,6 +91,7 @@ def build_mini_tsrt_from_qwen():
 
     config = AutoConfig.from_pretrained(
         "models/tsrt",
+        subfolder="mini",
         trust_remote_code=True,
     )
 
